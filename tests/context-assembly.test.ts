@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   assembleThreadContext,
+  DEFAULT_CONTEXT_MESSAGE_LIMIT,
   estimateTokensPlaceholder,
 } from "../electron/main/services/context-assembly";
+import { openTestDatabase } from "../electron/main/database/test-db";
+import {
+  createThread,
+  createWorkspace,
+} from "../electron/main/services/workspace-service";
+import {
+  DEFAULT_MESSAGE_PAGE_SIZE,
+  listMessages,
+} from "../electron/main/services/message-service";
 import type { Message } from "../src/shared/types";
 
 function msg(
@@ -47,5 +57,29 @@ describe("context assembly", () => {
   it("estimates tokens with placeholder", () => {
     const tokens = estimateTokensPlaceholder([{ role: "user", content: "12345678" }]);
     expect(tokens).toBe(2);
+  });
+
+  it("listMessages does not load unbounded history for large threads", () => {
+    const s = openTestDatabase();
+    try {
+      const ws = createWorkspace(s.db, "Context cap");
+      const thread = createThread(s.db, ws.id, "T");
+      const total = DEFAULT_MESSAGE_PAGE_SIZE + 25;
+      for (let i = 0; i < total; i++) {
+        const ts = new Date(Date.UTC(2026, 5, 1, 10, 0, i)).toISOString();
+        s.db
+          .prepare(
+            `INSERT INTO messages (id, thread_id, role, content, provider, model, raw_provider_payload, message_status, created_at)
+             VALUES (?, ?, 'user', ?, NULL, NULL, NULL, 'completed', ?)`,
+          )
+          .run(`cap-${i}`, thread.id, `m${i}`, ts);
+      }
+      const loaded = listMessages(s.db, thread.id);
+      expect(loaded.length).toBeLessThanOrEqual(DEFAULT_MESSAGE_PAGE_SIZE * 2);
+      expect(loaded.length).toBeGreaterThanOrEqual(DEFAULT_CONTEXT_MESSAGE_LIMIT);
+      expect(loaded[loaded.length - 1].content).toBe(`m${total - 1}`);
+    } finally {
+      s.cleanup();
+    }
   });
 });

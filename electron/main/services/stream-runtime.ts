@@ -20,12 +20,13 @@ import {
 import {
   applyContextTruncation,
   assembleThreadContext,
+  DEFAULT_CONTEXT_MESSAGE_LIMIT,
 } from "./context-assembly";
 import {
   assertMessageThreadContext,
   finalizeAssistantMessage,
   insertMessage,
-  listMessages,
+  listMessagesPage,
   setMessageStatus,
   updateMessageContent,
 } from "./message-service";
@@ -198,7 +199,9 @@ export async function startAssistantStream(
     }
   }
 
-  const history = listMessages(db, threadId);
+  const history = listMessagesPage(db, threadId, {
+    limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,
+  }).messages;
   const { messages: contextMessages, estimatedTokens } = assembleThreadContext(history);
   const truncated = applyContextTruncation(contextMessages, 128_000);
 

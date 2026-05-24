@@ -1,0 +1,62 @@
+ContinuityOS Desktop — Full verification run
+Generated: 2026-05-18 (product-readiness pass)
+
+=== BASELINE (before changes) ===
+git status: clean (be85cee on main)
+git remote: origin https://github.com/ronyean-collab/OS.git
+Initial npm test in agent env: FAILED (better-sqlite3 NODE_MODULE_VERSION 115 vs 127)
+Fix: npm rebuild better-sqlite3
+After rebuild: PASS (see below)
+
+=== npm test (full) ===
+
+> continuity-os-desktop@0.1.0 test
+> vitest run
+
+ Test Files  30 passed (30)
+      Tests  150 passed (150)
+   Duration  ~8.8s
+
+=== npm run build ===
+
+> continuity-os-desktop@0.1.0 build
+> electron-vite build
+
+out/main/index.js      212.83 kB
+out/preload/index.cjs    9.74 kB
+out/renderer/index.html, assets/...
+BUILD: PASS
+
+=== Targeted tests ===
+- tests/context-assembly.test.ts (4 tests) — PASS
+- tests/workspace-import.test.ts (9 tests) — PASS
+- tests/v12-restore-lane.test.ts (8 tests) — PASS
+- tests/stream-runtime.test.ts (3 tests) — PASS
+- tests/thread-management.test.ts (9 tests) — PASS
+
+=== Changes this session ===
+1. electron/main/services/stream-runtime.ts
+   - Load provider context via listMessagesPage(limit=40) instead of listMessages
+2. tests/context-assembly.test.ts
+   - Test: listMessages caps large-thread load
+3. docs/FULL_TESTING_CHECKLIST.md
+   - Created full manual + automated testing checklist
+
+=== Manual verification (NOT performed in this session) ===
+- Fresh install UX walkthrough
+- Live OpenAI streaming with real API key
+- Long-session RAM profiling in Task Manager
+- npm run dev interactive smoke test
+
+=== Remaining risks ===
+- applyContextTruncation is a no-op (token budget not enforced beyond message count)
+- continuity_records table exists but unused (no project summary feature yet)
+- Export/import still builds full in-memory packages (expected; transient)
+- better-sqlite3 must match Node ABI after Node upgrades (npm rebuild)
+
+=== Product readiness snapshot ===
+- Long-term context: SQLite (messages, threads, snapshots, timeline, workspaces)
+- Active AI context: assembleThreadContext (40-msg tail) + stream loads same bound
+- Renderer: paginated messages (40 default), load-older on demand
+- Restore/export: verified backup bundles, encrypted path, replay hash validation
+- No semantic memory / cloud sync / agents (by design)
