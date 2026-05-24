@@ -1,0 +1,37 @@
+{
+  "name": "continuity-os-desktop",
+  "version": "0.1.0",
+  "description": "ContinuityOS v1 — local-first AI continuity workspace (Electron)",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:verify": "node scripts/verify-foundation.mjs",
+    "postinstall": "electron-builder install-app-deps || true"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "better-sqlite3": "^11.8.1",
+    "openai": "^4.85.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7"
+  }
+}
