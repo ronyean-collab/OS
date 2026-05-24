@@ -309,3 +309,209 @@ Push: no
 ## Next Recommended Step
 
 Open the app once with `npm run dev`, confirm Recovery mode is gone and workspace loads; then continue manual testing from `docs/FULL_TESTING_CHECKLIST.md` section A (Startup) and C (Chat runtime).
+
+---
+
+# Feedback Log Entry
+
+## Date / Time
+
+- Local time: 2026-05-24 ~15:35 EDT
+
+## Task name
+
+- Full established feature testing and project audit
+
+## Original Goal
+
+- Run full automated testing and audit all established ContinuityOS Desktop features (A–O).
+- Verify native sqlite rebuild, build, and dev startup after prior Recovery mode issue.
+- Produce audit logs and updated checklist; fix only verified blocking bugs (none found).
+
+## Commands Run
+
+| Command | Result |
+|---------|--------|
+| `git status --short` | `M .continuity-test/migration-audit.jsonl` only |
+| `git branch -vv` | `main` @ `d55ac34`, ahead of `origin/main` |
+| `git log --oneline -5` | d55ac34, 3fc95e8, be85cee |
+| `git remote -v` | origin → github.com/ronyean-collab/OS.git |
+| `node -v` | v22.22.0 |
+| `npm -v` | 10.8.2 |
+| `npx electron --version` | v34.5.8 |
+| `npm rebuild better-sqlite3` | success |
+| `npx electron-rebuild -f -w better-sqlite3` | Rebuild Complete |
+| `npx electron scripts/verify-sqlite-electron.mjs` | electron better-sqlite3 OK |
+| `npm test` | 30 files / 150 tests PASS |
+| Targeted vitest (19 files) | 105 tests PASS |
+| `npm run build` | PASS |
+| `npm run dev` | Started 35s; no sqlite/preload errors in logs |
+
+## Feature Areas Audited
+
+| Area | Status |
+|------|--------|
+| A. Startup / preload | **PASS** (code + tests indirect) |
+| B. SQLite persistence | **PASS** (automated) |
+| C. Workspace lifecycle | **PASS** (automated) |
+| D. Thread management | **PASS** (automated) |
+| E. Chat / streaming | **PASS** (automated) |
+| F. Context / RAM | **PARTIAL** (40-msg cap; no token truncation) |
+| G. Provider onboarding | **PASS** (automated) |
+| H. Secure storage | **PASS** (automated) |
+| I. Export / import | **PASS** (automated) |
+| J. Encrypted backups | **PASS** (automated) |
+| K. Snapshots / restore | **PASS** (automated) |
+| L. Crash / diagnostics | **PASS** (automated) |
+| M. Release / update readiness | **PASS** (automated) |
+| N. Orphan / integrity | **PASS** (automated) |
+| O. UI beginner-readiness | **NOT MANUALLY VERIFIED** |
+
+## Bugs / Issues Found
+
+| Severity | Issue | Status |
+|----------|--------|--------|
+| — | No new blocking bugs in this pass | — |
+| Low | `applyContextTruncation` is no-op | Unresolved (design gap) |
+| Low | `continuity_records` table unused | Unresolved (no project summary v1) |
+| Medium | Dual Node/Electron ABI for better-sqlite3 | Mitigated by package.json scripts |
+| — | Manual UI / live OpenAI not verified | Open |
+
+## Fixes Applied
+
+- **None** in this audit session (verification only).
+- Updated `docs/FULL_TESTING_CHECKLIST.md` (sections I–N, test count 150).
+- Updated `.gitignore` for `_audit-dev-*.txt`.
+- Created `full-feature-audit-log.txt`.
+
+## Test Results
+
+- **npm test:** 30 passed / 150 tests, exit 0
+- **Targeted vitest:** 19 files / 105 tests, exit 0
+- **npm run build:** exit 0, all out/ artifacts present
+
+## App Verification
+
+- **npm run dev started:** Yes (automated)
+- **Recovery mode:** Not confirmed in UI; not in process logs
+- **Workspace loaded:** Not confirmed in UI
+- **Preload bridge:** Built OK; no load errors in logs; UI not inspected
+- **SQLite native mismatch:** None after Electron rebuild + verify script
+- **Manual UI checks:** Not completed by agent
+
+## Files Changed
+
+### Created
+
+- `full-feature-audit-log.txt`
+
+### Modified
+
+- `docs/FULL_TESTING_CHECKLIST.md`
+- `.gitignore`
+- `feedback-log.md` (this entry)
+
+### Deleted
+
+- None
+
+## Git Status
+
+```text
+ M .continuity-test/migration-audit.jsonl
+ M docs/FULL_TESTING_CHECKLIST.md
+ M .gitignore
+ M feedback-log.md
+?? full-feature-audit-log.txt
+branch: main @ d55ac34
+committed: no (this audit session)
+pushed: no
+```
+
+## Remaining Risks
+
+- Manual checklist sections I, K, M, N, O still open
+- Live provider streaming untested
+- RAM / long-session profiling not done
+- Project Continuity Summary not implemented
+- Token-aware context budget not implemented
+
+## Next Recommended Step
+
+Run `npm run dev`, spend 30 minutes on `docs/FULL_TESTING_CHECKLIST.md` sections **I** (native sqlite UI), **C** (chat stream with real key), and **O** (beginner UX); then commit audit artifacts if desired: `docs/FULL_TESTING_CHECKLIST.md`, `full-feature-audit-log.txt`, `feedback-log.md`, `.gitignore`.
+
+---
+
+# Feedback Log Entry
+
+## Date / Time
+
+- Local time: 2026-05-24 ~16:05 EDT
+
+## Task name
+
+- Native SQLite rebuild verification / build and dev runtime check
+
+## Original Goal
+
+- Confirm better-sqlite3 native rebuild fixed tests and Electron runtime Recovery mode.
+- Complete task-feedback-log.txt with build and dev verification for ChatGPT copy/paste.
+
+## Actions Taken
+
+- Commands run: node/npm/electron versions; git status; npm rebuild better-sqlite3; npx @electron/rebuild; verify-sqlite-electron.mjs; npm test; npm run build; npm run dev (40s automated).
+- Native rebuild actions: Node rebuild before tests; Electron rebuild before dev; both succeeded.
+- Build verification: electron-vite PASS, all out/ artifacts.
+- Dev app verification: process started; pattern scan clean; UI not manually verified by agent.
+
+## Root Cause
+
+- better-sqlite3 native module was compiled for a different Node/Electron ABI than the runtime required (single .node binary; last rebuild wins).
+
+## Files Changed
+
+Created:
+- task-feedback-log.txt
+
+Modified:
+- feedback-log.md (this entry)
+
+Deleted:
+- (none)
+
+## Test Results
+
+- npm test: 30 passed / 150 tests, exit 0
+- npm run build: exit 0
+- targeted tests: not run separately (full suite used)
+
+## App Verification
+
+- npm run dev started: yes (automated)
+- Electron app opened: not confirmed by agent
+- Recovery mode appeared: not confirmed in UI; not in logs
+- Schema shown: not confirmed
+- Workspace loaded: not confirmed
+- better-sqlite3 mismatch gone: yes in Electron verify script + dev log scan
+- Preload bridge errors: none in logs
+- Manual notes: user must confirm UI while dev running
+
+## Git Status
+
+- Branch: main @ d55ac34 (ahead of origin/main by 1)
+- Latest commit: d55ac34 chore: stabilize native sqlite rebuild workflow
+- git status --short: M audit files + ?? task-feedback-log.txt, full-feature-audit-log.txt, _task-dev-*.txt
+- Uncommitted files: yes
+- Pushed: no
+
+## Remaining Risks
+
+- Native modules may require rebuild after Node/Electron upgrades.
+- Manual long-session testing still needed.
+- RAM profiling still needed.
+- UI Recovery/workspace confirmation pending.
+
+## Next Recommended Step
+
+- Continue full manual testing from docs/FULL_TESTING_CHECKLIST.md after user confirms build/dev UI locally.
+

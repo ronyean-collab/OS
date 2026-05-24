@@ -119,12 +119,83 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 30 files / 149 tests | ☐ | |
+| H1 | `npm test` — 30 files / 150 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
 | H5 | Renderer shows fallback if preload missing | ☐ | |
 | H6 | Production output: `out/main`, `out/preload`, `out/renderer` | ☐ | |
+
+---
+
+## I. Native SQLite / dual runtime (Node vs Electron)
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| I1 | `npm rebuild better-sqlite3` succeeds (Node/Vitest) | ☐ | Or `npm run rebuild:native:node` |
+| I2 | `npx electron-rebuild -f -w better-sqlite3` succeeds | ☐ | Or `npm run rebuild:native:electron` |
+| I3 | `npx electron scripts/verify-sqlite-electron.mjs` prints OK | ☐ | After Electron rebuild |
+| I4 | `npm test` passes (no NODE_MODULE mismatch) | ☐ | |
+| I5 | `npm run dev` does not show Recovery from sqlite failure | ☐ | Manual UI |
+| I6 | Schema not stuck at 0 after normal startup | ☐ | Manual UI |
+| I7 | Use `npm run dev` not raw `electron-vite dev` | ☐ | Ensures Electron rebuild |
+
+**Rule:** `npm test` switches binary to Node ABI; `npm run dev` rebuilds for Electron first.
+
+---
+
+## J. Git / release hygiene
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| J1 | `git status` clean or only intentional changes | ☐ | |
+| J2 | On `main`, tracking `origin/main` | ☐ | |
+| J3 | No temp logs staged (`build-check-log.txt`, etc.) | ☐ | See `.gitignore` |
+| J4 | `npm run build` before tagging release | ☐ | |
+
+---
+
+## K. Manual RAM / long-session
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| K1 | Baseline RAM at idle (Task Manager) | ☐ | Record MB |
+| K2 | Large thread (500+ msgs): UI stays paginated | ☐ | Load earlier only |
+| K3 | RAM stable after closing import/export modal | ☐ | |
+| K4 | Multi-hour session: no runaway growth | ☐ | |
+| K5 | Multi-day continuity: export → re-import → continue | ☐ | |
+
+---
+
+## L. Secret leakage checks
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| L1 | SQLite `provider_configs` has `secure_key_ref` only | ☐ | |
+| L2 | Diagnostics copy/export redacts secrets | ☐ | Automated: `crash-recovery` |
+| L3 | No `sk-` in renderer console during setup | ☐ | DevTools |
+| L4 | Encrypted backup password not stored | ☐ | |
+
+---
+
+## M. OpenAI live connection (manual)
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| M1 | Test connection with valid key | ☐ | |
+| M2 | Test connection with invalid key (calm error) | ☐ | |
+| M3 | Stream one real assistant reply | ☐ | |
+
+---
+
+## N. Recovery mode scenarios (manual)
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| N1 | Normal startup: no Recovery banner | ☐ | |
+| N2 | Recovery after real DB corruption (if tested) | ☐ | Do not delete DB casually |
+| N3 | Recovery mode blocks import/export | ☐ | |
+| N4 | Migration dry-run from Ops does not mutate | ☐ | Automated: `v12-restore-lane` |
 
 ---
 

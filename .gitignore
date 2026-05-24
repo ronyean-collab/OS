@@ -10,12 +10,17 @@ dist
 .env.local
 coverage
 
-# Local verification / agent logs (do not commit)
+# Local task/debug logs
 error-log.txt
 test-feedback-log.txt
+task-feedback-log.txt
 build-check-log.txt
 native-rebuild-log.txt
 _dev-stderr.txt
+_task-dev-out.txt
+_task-dev-err.txt
 _dev-verify-out.txt
 _dev-verify-err.txt
+_audit-dev-out.txt
+_audit-dev-err.txt
 *.log

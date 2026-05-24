@@ -1,0 +1,208 @@
+ContinuityOS Desktop — Full Established Feature Audit Log
+Generated: 2026-05-24T15:35:00-04:00 (approx)
+Project: C:\Users\ronye\continuity-os-desktop
+
+================================================================================
+PHASE 1 — BASELINE
+================================================================================
+git status --short:
+ M .continuity-test/migration-audit.jsonl
+
+Branch: main (tracks origin/main, ahead 1 commit locally vs last push state)
+Latest commits:
+  d55ac34 chore: stabilize native sqlite rebuild workflow
+  3fc95e8 chore: prepare continuity desktop for full product testing
+  be85cee test: stabilize desktop runtime restore lane and provider setup
+
+Remote: origin https://github.com/ronyean-collab/OS.git
+
+node -v:  v22.22.0
+npm -v:   10.8.2
+electron: v34.5.8
+
+package.json scripts (native):
+  test: npm run rebuild:native:node && vitest run
+  dev:  npm run rebuild:native:electron && electron-vite dev
+  rebuild:native:node / rebuild:native:electron
+
+Untracked/ignored logs (not in git): error-log.txt, test-feedback-log.txt,
+  build-check-log.txt, native-rebuild-log.txt, _dev-stderr.txt, _audit-dev-*.txt
+
+================================================================================
+PHASE 2 — NATIVE SQLITE / RECOVERY
+================================================================================
+npm rebuild better-sqlite3: success
+npx electron-rebuild -f -w better-sqlite3: Rebuild Complete
+npx electron scripts/verify-sqlite-electron.mjs: electron better-sqlite3 OK
+
+Note: Single .node binary — npm test uses Node ABI; npm run dev rebuilds Electron ABI.
+
+Recovery mode from sqlite: NOT observed in automated dev logs (35s run).
+UI Recovery/schema/workspace: NOT MANUALLY VERIFIED by agent.
+
+================================================================================
+PHASE 3 — AUTOMATED TESTS
+================================================================================
+npm test:
+  Test Files  30 passed (30)
+  Tests       150 passed (150)
+  Duration    ~7.2s
+  Exit code: 0
+
+Targeted vitest (19 critical files, 105 tests):
+  Test Files  19 passed (19)
+  Tests       105 passed (105)
+  Exit code: 0
+
+Files in targeted batch:
+  database, persistence-services, stream-runtime, context-assembly,
+  thread-management, thread-sidebar-runtime, workspace-import, workspace-export,
+  v12-restore-lane, secure-storage, provider-setup, provider-multi,
+  onboarding-flow, crash-recovery, release-runtime, recovery-runtime,
+  orphan-repair, replay-validator, workspace-health
+
+================================================================================
+PHASE 4 — BUILD
+================================================================================
+npm run build: PASS (exit 0)
+  out/main/index.js       212.83 kB
+  out/preload/index.cjs     9.74 kB
+  out/renderer/index.html
+  out/renderer/assets/index-Cms6m9Fz.css
+  out/renderer/assets/index-Hs_bjRMA.js
+
+================================================================================
+PHASE 5 — DEV RUNTIME (AUTOMATED OBSERVATION)
+================================================================================
+npm run dev: started (includes rebuild:native:electron)
+  - Vite main + preload + renderer dev server OK
+  - "start electron app..." logged
+  - No NODE_MODULE, better_sqlite3, Recovery, preload load errors in captured logs
+
+Manual UI verification: NOT PERFORMED
+  - window.continuity: expected via preload (not inspected in DevTools)
+  - Workspace load / Recovery banner: user must confirm
+
+================================================================================
+PHASE 6 — FEATURE AUDIT BY AREA
+================================================================================
+
+A. App startup / preload bridge — PASS (automated + code review)
+   Files: electron/main/index.ts, electron/preload/index.ts, electron.vite.config.ts,
+          src/renderer/src/App.tsx
+   - contextIsolation: true, nodeIntegration: false (main/index.ts)
+   - PreloadBridgeFallback when !window.continuity (App.tsx)
+   - Tests: implicit via IPC/stream tests; no dedicated preload-only test
+
+B. SQLite persistence — PASS (automated)
+   Files: schema.ts, migrations.ts, connection.ts, workspace/message/timeline services
+   - Tests: database.test.ts, persistence-services.test.ts, sqlite-integrity.test.ts
+   - FK enabled in tests; migrations record schema version
+
+C. Workspace lifecycle — PASS (automated)
+   Files: workspace-service.ts, workspace-health.ts, workspace-import/export.ts
+   - Tests: workspace-health, workspace-import, workspace-export, persistence-services
+
+D. Thread management — PASS (automated)
+   Files: thread-management-service.ts, ThreadSidebar.tsx, ThreadDeleteConfirm.tsx
+   - Tests: thread-management.test.ts, thread-sidebar-runtime.test.ts
+
+E. Chat runtime / streaming — PASS (automated)
+   Files: stream-runtime.ts, message-service.ts, provider-service.ts, openai-adapter.ts
+   - Tests: stream-runtime.test.ts, recovery-runtime.test.ts
+
+F. Context assembly / RAM protection — PARTIAL
+   Files: context-assembly.ts, message-service.ts, stream-runtime.ts, App.tsx
+   - DEFAULT_CONTEXT_MESSAGE_LIMIT = 40 messages
+   - DEFAULT_MESSAGE_PAGE_SIZE = 40 (renderer pagination)
+   - listMessages caps at 2x page size for main-process listMessages()
+   - stream-runtime uses listMessagesPage(limit=40)
+   - applyContextTruncation: NO-OP (no token-aware budget yet)
+   - Very long single messages: not specially truncated
+   - Tests: context-assembly.test.ts, workspace-health.test.ts
+   Gaps: no project continuity summary; export holds full package in memory transiently
+
+G. Provider onboarding / setup — PASS (automated)
+   Files: provider-definitions, ProviderOnboarding, ProviderSetupPanel, provider-service
+   - Tests: onboarding-flow, provider-setup, provider-multi, provider-definitions
+
+H. Secure API key storage — PASS (automated)
+   Files: secure-storage/*, provider-service.ts, diagnostics-service.ts
+   - secure_key_ref in SQLite; assertNoSecretsInDiagnostics
+   - Tests: secure-storage.test.ts, crash-recovery (diagnostics secrets)
+
+I. Export / import — PASS (automated)
+   Files: workspace-export.ts, export-manifest.ts, workspace-import.ts, checkpoint-validator.ts
+   - Tests: workspace-export.test.ts, workspace-import.test.ts
+
+J. Encrypted backup — PASS (automated)
+   Files: encrypted-export.ts, encrypted-import.ts
+   - Tests: encrypted-export.test.ts, v12-restore-lane (corrupt bundle, wrong password)
+
+K. Snapshots / restore lane — PASS (automated)
+   Files: snapshot-service.ts, restore-service.ts, restore-preview.ts, migration-dry-run.ts
+   - Tests: restore-service.test.ts, autosave-runtime.test.ts, v12-restore-lane.test.ts
+
+L. Crash recovery / diagnostics — PASS (automated)
+   Files: crash-logger, diagnostics-service.ts, diagnostics-bundle.ts
+   - Tests: crash-recovery.test.ts, app-version.test.ts
+
+M. Release / update readiness — PASS (automated)
+   Files: release-channel.ts, compatibility.ts, update-readiness.ts, migration-audit
+   - Tests: release-runtime.test.ts, recovery-runtime.test.ts
+
+N. Orphan repair / integrity — PASS (automated)
+   Files: orphan-repair.ts, export-verification, checkpoint-validator
+   - Tests: orphan-repair.test.ts, sqlite-integrity.test.ts, replay-validator.test.ts
+
+O. UI beginner-readiness — NOT MANUALLY VERIFIED
+   Code review only: calm copy in onboarding, backup reminder, recovery banner components exist
+   Manual walkthrough required per docs/FULL_TESTING_CHECKLIST.md
+
+================================================================================
+CONTEXT / RAM ANSWERS (from code)
+================================================================================
+1. Recent messages default: 40 (assembleThreadContext / stream path)
+2. Token budget: placeholder only; applyContextTruncation returns messages unchanged
+3. Very long single messages: not split/truncated by token logic
+4. RAM risks: export/import full bundle in memory; user loading all older pages in UI;
+   ops panels load timeline/snapshots on refresh
+5. Missing for long-chat replacement: project continuity summary, token-aware truncation,
+   semantic retrieval (out of scope per product direction)
+
+================================================================================
+BUGS FOUND THIS SESSION
+================================================================================
+None blocking automated verification.
+
+Known limitations (not new bugs):
+- Dual ABI native module requires correct rebuild script before test vs dev
+- continuity_records table unused (no project summary feature)
+- applyContextTruncation no-op
+
+================================================================================
+FIXES APPLIED THIS SESSION
+================================================================================
+None (verification/audit only).
+Prior session: package.json native rebuild scripts, verify-sqlite-electron.mjs (committed d55ac34).
+
+================================================================================
+UNRESOLVED RISKS
+================================================================================
+- Manual UI/Recovery/workspace confirmation still required
+- Live OpenAI streaming not tested in this pass
+- RAM profiling not performed
+- Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
+- Project Continuity Summary not implemented
+- Local commit d55ac34 may be ahead of origin/main
+
+================================================================================
+RECOMMENDED NEXT PHASE
+================================================================================
+1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O (30 min)
+2. Confirm npm run dev UI: no Recovery, workspace loads
+3. Optional: push d55ac34 + audit docs commit to origin/main when ready
+4. Future small win: token-aware applyContextTruncation (no architecture change)
+
+================================================================================
+END OF AUDIT LOG
