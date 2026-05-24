@@ -155,6 +155,17 @@ function applyCheckpointRestore(
       m.messageStatus,
     );
   }
+
+  if (checkpoint.continuitySummary !== undefined) {
+    const summary =
+      checkpoint.continuitySummary != null &&
+      String(checkpoint.continuitySummary).trim().length > 0
+        ? String(checkpoint.continuitySummary).trim()
+        : null;
+    db.prepare(
+      "UPDATE workspaces SET continuity_summary = ?, updated_at = ? WHERE id = ?",
+    ).run(summary, new Date().toISOString(), checkpoint.workspaceId);
+  }
 }
 
 function updateSnapshotRestoreHistory(

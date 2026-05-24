@@ -177,8 +177,13 @@ None blocking automated verification.
 
 Known limitations (not new bugs):
 - Dual ABI native module requires correct rebuild script before test vs dev
-- continuity_records table unused (no project summary feature)
 - applyContextTruncation no-op
+
+Project Continuity Summary v1 (2026-05-18):
+- Implemented: workspaces.continuity_summary column (schema v6)
+- User-editable in Overview ops panel; included in assembleProviderContext
+- Export/import and snapshot checkpoint preserve summary
+- Max 8000 chars; does not delete or replace canonical messages
 
 ================================================================================
 FIXES APPLIED THIS SESSION
@@ -193,7 +198,7 @@ UNRESOLVED RISKS
 - Live OpenAI streaming not tested in this pass
 - RAM profiling not performed
 - Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
-- Project Continuity Summary not implemented
+- Project Continuity Summary v1 implemented (schema 6, workspaces.continuity_summary)
 - Local commit d55ac34 may be ahead of origin/main
 
 ================================================================================

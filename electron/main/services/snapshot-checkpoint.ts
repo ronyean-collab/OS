@@ -30,6 +30,8 @@ export type SnapshotCheckpointPayload = {
   workspaceId: string;
   capturedAt: string;
   capturedWith?: VersionStamp;
+  workspaceName?: string;
+  continuitySummary?: string | null;
   threads: CheckpointThread[];
   messages: CheckpointMessage[];
   restoreHistory?: Array<{
@@ -88,12 +90,21 @@ export function captureWorkspaceCheckpoint(
     return t !== 0 ? t : a.id.localeCompare(b.id);
   });
 
+  const wsRow = db
+    .prepare("SELECT name, continuity_summary FROM workspaces WHERE id = ?")
+    .get(workspaceId) as { name: string; continuity_summary: string | null } | undefined;
+
   return {
     checkpointVersion: CHECKPOINT_VERSION,
     scope,
     workspaceId,
     capturedAt,
     capturedWith: getVersionStamp(),
+    workspaceName: wsRow?.name ?? undefined,
+    continuitySummary:
+      wsRow?.continuity_summary != null && String(wsRow.continuity_summary).length > 0
+        ? String(wsRow.continuity_summary)
+        : null,
     threads,
     messages,
   };

@@ -10,6 +10,8 @@ import { appendTimelineEvent, enqueueSyncPlaceholder } from "./continuity-servic
 
 import { recordSuccessfulPersistence } from "./reliability-metrics";
 
+import { MAX_CONTINUITY_SUMMARY_CHARS } from "./context-assembly";
+
 import {
 
   createThreadInWorkspace,
@@ -43,6 +45,11 @@ function mapWorkspace(row: Record<string, unknown>): Workspace {
     updatedAt: String(row.updated_at),
 
     lastOpenedAt: String(row.last_opened_at),
+
+    continuitySummary:
+      row.continuity_summary != null && String(row.continuity_summary).length > 0
+        ? String(row.continuity_summary)
+        : null,
 
   };
 
@@ -88,6 +95,68 @@ export function listWorkspaces(db: Database.Database): Workspace[] {
 
   return rows.map(mapWorkspace);
 
+}
+
+
+
+export function getWorkspaceById(
+  db: Database.Database,
+  workspaceId: string,
+): Workspace | null {
+  const row = db
+    .prepare("SELECT * FROM workspaces WHERE id = ?")
+    .get(workspaceId) as Record<string, unknown> | undefined;
+  return row ? mapWorkspace(row) : null;
+}
+
+
+
+export function normalizeContinuitySummary(raw: string): string {
+  return raw.trim().slice(0, MAX_CONTINUITY_SUMMARY_CHARS);
+}
+
+
+
+export function updateContinuitySummary(
+  db: Database.Database,
+  workspaceId: string,
+  summary: string,
+): Workspace {
+  const normalized = normalizeContinuitySummary(summary);
+  const now = new Date().toISOString();
+
+  return runInTransaction(db, () => {
+    const existing = db
+      .prepare("SELECT id FROM workspaces WHERE id = ?")
+      .get(workspaceId) as { id: string } | undefined;
+    if (!existing) {
+      throw new Error("Workspace not found.");
+    }
+
+    db.prepare(
+      "UPDATE workspaces SET continuity_summary = ?, updated_at = ? WHERE id = ?",
+    ).run(normalized.length > 0 ? normalized : null, now, workspaceId);
+
+    appendTimelineEvent(db, {
+      workspaceId,
+      type: "continuity_summary_updated",
+      title: "Continuity summary updated",
+      description:
+        normalized.length > 0
+          ? `Saved ${normalized.length} characters of project context.`
+          : "Cleared continuity summary.",
+      source: "user",
+    });
+
+    recordSuccessfulPersistence(db);
+
+    return mapWorkspace(
+      db.prepare("SELECT * FROM workspaces WHERE id = ?").get(workspaceId) as Record<
+        string,
+        unknown
+      >,
+    );
+  });
 }
 
 

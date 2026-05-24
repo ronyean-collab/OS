@@ -31,7 +31,8 @@ export type TimelineEventType =
   | "snapshot_restore_failed"
   | "workspace_import_started"
   | "workspace_import_completed"
-  | "workspace_import_failed";
+  | "workspace_import_failed"
+  | "continuity_summary_updated";
 
 export type TimelineEventSource = "user" | "system" | "import" | "recovery";
 
@@ -43,6 +44,8 @@ export type Workspace = {
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string;
+  /** User-editable project context — not a substitute for message history. */
+  continuitySummary: string | null;
 };
 
 export type Thread = {

@@ -6,6 +6,7 @@ import {
   MIGRATION_003,
   MIGRATION_004,
   MIGRATION_005,
+  MIGRATION_006,
   SCHEMA_VERSION,
 } from "./schema";
 import { createRecoverySnapshot } from "./recovery-snapshot";
@@ -23,6 +24,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 3, sql: MIGRATION_003 },
   { version: 4, sql: MIGRATION_004 },
   { version: 5, sql: MIGRATION_005 },
+  { version: 6, sql: MIGRATION_006 },
 ];
 
 export function getAppliedVersion(db: Database.Database): number {

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ProviderSetupPanel, type ProviderSetupPanelProps } from "./ProviderSetupPanel";
 import { ReliabilityIndicators } from "./ReliabilityIndicators";
 import { WorkspaceHealthPanel } from "./WorkspaceHealthPanel";
+import { ContinuitySummaryPanel } from "./ContinuitySummaryPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { SnapshotPanel } from "./SnapshotPanel";
 import type {
@@ -32,6 +33,8 @@ type Props = {
   onRestorePreview: (snapshotId: string, workspaceId: string) => Promise<RestorePreview>;
   onRestore: (snapshotId: string, workspaceId: string) => Promise<RestoreExecutionResult>;
   onRestored: () => void;
+  continuitySummary: string | null;
+  onSaveContinuitySummary: (summary: string) => Promise<void>;
 };
 
 const TABS: { id: OpsTabId; label: string }[] = [
@@ -57,12 +60,20 @@ export function OpsSidebar({
   onRestorePreview,
   onRestore,
   onRestored,
+  continuitySummary,
+  onSaveContinuitySummary,
 }: Props) {
   let panel: ReactNode = null;
 
   if (activeTab === "overview") {
     panel = (
       <>
+        <ContinuitySummaryPanel
+          workspaceId={workspaceId}
+          summary={continuitySummary}
+          disabled={recoveryMode}
+          onSave={onSaveContinuitySummary}
+        />
         <ReliabilityIndicators appState={appState} autosave={autosaveStatus} />
         <WorkspaceHealthPanel
           health={workspaceHealth}

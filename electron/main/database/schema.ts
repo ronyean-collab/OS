@@ -185,6 +185,10 @@ UPDATE threads SET sort_order = (
 ) WHERE sort_order IS NULL;
 `;
 
+export const MIGRATION_006 = `
+ALTER TABLE workspaces ADD COLUMN continuity_summary TEXT;
+`;
+
 export const REQUIRED_TABLES = [
   "schema_migrations",
   "app_meta",

@@ -34,6 +34,7 @@ import {
   renameThread,
   setActiveThread,
   setActiveWorkspace,
+  updateContinuitySummary,
 } from "../services/workspace-service";
 import {
   archiveThreadAndRepair,
@@ -288,6 +289,18 @@ export function registerIpcHandlers(): void {
     setActiveWorkspace(db, assertNonEmptyString(workspaceId, "workspaceId"));
     return buildAppState();
   });
+
+  ipcMain.handle(
+    IPC.WORKSPACE_UPDATE_CONTINUITY_SUMMARY,
+    (_e, workspaceId: unknown, summary: unknown) => {
+      const db = requireDb();
+      const id = assertNonEmptyString(workspaceId, "workspaceId");
+      if (typeof summary !== "string") {
+        throw new Error("summary must be a string");
+      }
+      return updateContinuitySummary(db, id, summary);
+    },
+  );
 
   ipcMain.handle(IPC.WORKSPACE_EXPORT, (_e, workspaceId: string) => {
     try {

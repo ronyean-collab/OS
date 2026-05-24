@@ -624,6 +624,13 @@ export function App() {
     await refreshOpsPanels(workspace.id);
   };
 
+  const handleSaveContinuitySummary = async (summary: string) => {
+    if (!workspace) return;
+    const updated = await continuity.updateContinuitySummary(workspace.id, summary);
+    setWorkspace(updated);
+    await refreshOpsPanels(workspace.id);
+  };
+
   const isEncryptedBackupFile = (text: string): boolean => {
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
@@ -982,6 +989,8 @@ export function App() {
           onRestorePreview={continuity.getRestorePreview}
           onRestore={continuity.restoreSnapshot}
           onRestored={handleAfterRestore}
+          continuitySummary={workspace?.continuitySummary ?? null}
+          onSaveContinuitySummary={handleSaveContinuitySummary}
         />
       </div>
       )}

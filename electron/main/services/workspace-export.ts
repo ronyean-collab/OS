@@ -46,6 +46,10 @@ function mapWorkspace(row: Record<string, unknown>): Workspace {
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     lastOpenedAt: String(row.last_opened_at),
+    continuitySummary:
+      row.continuity_summary != null && String(row.continuity_summary).length > 0
+        ? String(row.continuity_summary)
+        : null,
   };
 }
 

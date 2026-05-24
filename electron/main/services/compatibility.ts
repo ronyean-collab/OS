@@ -22,6 +22,7 @@ export const SCHEMA_COMPATIBILITY_REGISTRY: SchemaCompatibilityEntry[] = [
   { schemaVersion: 3, minAppVersion: "0.1.0", notes: "Timeline version columns" },
   { schemaVersion: 4, minAppVersion: "0.1.0", notes: "Performance + replay hash" },
   { schemaVersion: 5, minAppVersion: "0.1.0", notes: "Thread management + backup bundle" },
+  { schemaVersion: 6, minAppVersion: "0.1.0", notes: "Workspace continuity summary" },
 ];
 
 export type StartupCompatibilityReport = {

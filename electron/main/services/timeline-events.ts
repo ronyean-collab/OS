@@ -33,6 +33,7 @@ const ALLOWED_TYPES = new Set<string>([
   "workspace_import_started",
   "workspace_import_completed",
   "workspace_import_failed",
+  "continuity_summary_updated",
 ]);
 
 const ALLOWED_SOURCES = new Set<string>(["user", "system", "import", "recovery"]);

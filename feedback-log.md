@@ -515,3 +515,29 @@ Deleted:
 
 - Continue full manual testing from docs/FULL_TESTING_CHECKLIST.md after user confirms build/dev UI locally.
 
+---
+
+## 2026-05-18 — Project Continuity Summary v1
+
+### Goal
+
+Implement minimal user-editable Project Continuity Summary: persist per workspace, include in AI context assembly, export/import/snapshot support, Overview UI panel.
+
+### Implementation
+
+- Schema migration 006: `workspaces.continuity_summary` (SCHEMA_VERSION 6)
+- `updateContinuitySummary` service + IPC `workspace:update-continuity-summary`
+- `assembleProviderContext` prepends project identity + summary (max 8000 chars)
+- `ContinuitySummaryPanel` on Overview ops tab
+- Tests: `tests/continuity-summary.test.ts` (9 tests)
+
+### Verification
+
+- npm test: 31 files / 160 tests PASS
+- npm run build: PASS
+
+### Git
+
+- Commit: feat: add project continuity summary (pending this session)
+- Push: approved when tests/build pass
+

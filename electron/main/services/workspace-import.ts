@@ -256,14 +256,17 @@ export function executeWorkspaceImport(
 
       runImportStep("workspace insert", () => {
         db.prepare(
-          `INSERT INTO workspaces (id, user_id, name, created_at, updated_at, last_opened_at)
-           VALUES (?, NULL, ?, ?, ?, ?)`,
+          `INSERT INTO workspaces (id, user_id, name, created_at, updated_at, last_opened_at, continuity_summary)
+           VALUES (?, NULL, ?, ?, ?, ?, ?)`,
         ).run(
           newWorkspaceId,
           importName,
           pkg.workspace.createdAt,
           pkg.workspace.updatedAt,
           wsNow,
+          pkg.workspace.continuitySummary?.trim()
+            ? pkg.workspace.continuitySummary.trim()
+            : null,
         );
       });
 
@@ -397,6 +400,7 @@ export function executeWorkspaceImport(
         createdAt: pkg.workspace.createdAt,
         updatedAt: pkg.workspace.updatedAt,
         lastOpenedAt: wsNow,
+        continuitySummary: pkg.workspace.continuitySummary ?? null,
       } satisfies Workspace;
     });
 

@@ -19,7 +19,7 @@ import {
 } from "./continuity-service";
 import {
   applyContextTruncation,
-  assembleThreadContext,
+  assembleProviderContext,
   DEFAULT_CONTEXT_MESSAGE_LIMIT,
 } from "./context-assembly";
 import {
@@ -30,6 +30,7 @@ import {
   setMessageStatus,
   updateMessageContent,
 } from "./message-service";
+import { getWorkspaceById } from "./workspace-service";
 
 export type ActiveStream = {
   streamId: string;
@@ -202,7 +203,12 @@ export async function startAssistantStream(
   const history = listMessagesPage(db, threadId, {
     limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,
   }).messages;
-  const { messages: contextMessages, estimatedTokens } = assembleThreadContext(history);
+  const ws = getWorkspaceById(db, workspaceId);
+  const { messages: contextMessages, estimatedTokens } = assembleProviderContext({
+    workspaceName: ws?.name ?? "Workspace",
+    continuitySummary: ws?.continuitySummary ?? null,
+    messages: history,
+  });
   const truncated = applyContextTruncation(contextMessages, 128_000);
 
   const assistantMessage = insertMessage(db, {
@@ -263,7 +269,7 @@ async function runStream(args: {
   apiKey: string;
   model: string;
   provider: string;
-  contextMessages: ReturnType<typeof assembleThreadContext>["messages"];
+  contextMessages: ReturnType<typeof assembleProviderContext>["messages"];
   session: ActiveStream;
 }): Promise<void> {
   const { db, sender, streamId, adapter, apiKey, model, provider, contextMessages, session } =

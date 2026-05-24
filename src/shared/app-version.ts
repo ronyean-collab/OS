@@ -2,7 +2,7 @@ import pkg from "../../package.json";
 import { resolveReleaseChannel, type ReleaseChannel } from "./release-channel";
 
 /** Bump when SQLite migrations change — keep in sync with `electron/main/database/migrations.ts`. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const APP_NAME = "ContinuityOS";
 

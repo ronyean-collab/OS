@@ -4,6 +4,9 @@ import type { ProviderMessage } from "../providers/types";
 /** Default recent window — truncation hook for Phase 3+. */
 export const DEFAULT_CONTEXT_MESSAGE_LIMIT = 40;
 
+/** Max chars stored/sent for user-editable continuity summary. */
+export const MAX_CONTINUITY_SUMMARY_CHARS = 8000;
+
 /**
  * Deterministic recent-message context for provider requests.
  * No semantic retrieval — chronological tail of thread only.
@@ -31,6 +34,56 @@ export function assembleThreadContext(
 
   const estimatedTokens = estimateTokensPlaceholder(providerMessages);
   return { messages: providerMessages, estimatedTokens };
+}
+
+export type AssembleProviderContextInput = {
+  workspaceName: string;
+  continuitySummary?: string | null;
+  messages: Message[];
+  maxMessages?: number;
+};
+
+/**
+ * Builds provider context: optional workspace identity + continuity summary,
+ * then bounded recent thread messages. Summary never replaces canonical messages.
+ */
+export function assembleProviderContext(
+  input: AssembleProviderContextInput,
+): { messages: ProviderMessage[]; estimatedTokens: number } {
+  const { messages: threadMessages } = assembleThreadContext(input.messages, {
+    maxMessages: input.maxMessages,
+  });
+
+  const rawSummary = input.continuitySummary?.trim() ?? "";
+  const boundedSummary =
+    rawSummary.length > MAX_CONTINUITY_SUMMARY_CHARS
+      ? rawSummary.slice(0, MAX_CONTINUITY_SUMMARY_CHARS)
+      : rawSummary;
+
+  const prefixParts: string[] = [];
+  const workspaceName = input.workspaceName.trim();
+  if (workspaceName) {
+    prefixParts.push(`Project: ${workspaceName}`);
+  }
+  if (boundedSummary) {
+    prefixParts.push(
+      "Continuity summary (user-maintained project context — does not replace message history):\n" +
+        boundedSummary,
+    );
+  }
+
+  if (prefixParts.length === 0) {
+    return assembleThreadContext(input.messages, { maxMessages: input.maxMessages });
+  }
+
+  const providerMessages: ProviderMessage[] = [
+    { role: "system", content: prefixParts.join("\n\n") },
+    ...threadMessages,
+  ];
+  return {
+    messages: providerMessages,
+    estimatedTokens: estimateTokensPlaceholder(providerMessages),
+  };
 }
 
 /** Rough token estimate (~4 chars/token) — replace with tiktoken later. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assembleProviderContext,
   assembleThreadContext,
   DEFAULT_CONTEXT_MESSAGE_LIMIT,
   estimateTokensPlaceholder,
@@ -57,6 +58,21 @@ describe("context assembly", () => {
   it("estimates tokens with placeholder", () => {
     const tokens = estimateTokensPlaceholder([{ role: "user", content: "12345678" }]);
     expect(tokens).toBe(2);
+  });
+
+  it("assembleProviderContext keeps recent message limit with summary", () => {
+    const messages = Array.from({ length: 50 }, (_, i) =>
+      msg(String(i), "user", `m${i}`, `2026-01-01T00:${String(i).padStart(2, "0")}:00.000Z`),
+    );
+    const { messages: ctx } = assembleProviderContext({
+      workspaceName: "Cap",
+      continuitySummary: "Notes",
+      messages,
+      maxMessages: 10,
+    });
+    expect(ctx[0].role).toBe("system");
+    expect(ctx.filter((m) => m.role === "user")).toHaveLength(10);
+    expect(ctx[ctx.length - 1].content).toBe("m49");
   });
 
   it("listMessages does not load unbounded history for large threads", () => {

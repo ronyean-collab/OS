@@ -110,6 +110,12 @@ const api = {
   setActiveWorkspace: (workspaceId: string): Promise<AppState> =>
     ipcRenderer.invoke(IPC.WORKSPACE_SET_ACTIVE, workspaceId),
 
+  updateContinuitySummary: (
+    workspaceId: string,
+    summary: string,
+  ): Promise<Workspace> =>
+    ipcRenderer.invoke(IPC.WORKSPACE_UPDATE_CONTINUITY_SUMMARY, workspaceId, summary),
+
   exportWorkspace: (workspaceId: string): Promise<WorkspaceExportResult> =>
     ipcRenderer.invoke(IPC.WORKSPACE_EXPORT, workspaceId),
 

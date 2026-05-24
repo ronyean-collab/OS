@@ -199,12 +199,28 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
+## O. Project continuity summary (manual)
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| O1 | Overview tab shows Continuity summary panel | ☐ | Right ops sidebar |
+| O2 | Create/edit/save summary persists after restart | ☐ | |
+| O3 | Empty summary does not break chat | ☐ | |
+| O4 | Summary visible in overview; chat history unchanged | ☐ | Messages not deleted |
+| O5 | Export/import preserves continuity summary | ☐ | Automated: `continuity-summary.test.ts` |
+| O6 | Snapshot restore preserves summary when checkpoint includes it | ☐ | Automated: `continuity-summary.test.ts` |
+| O7 | Large summary (several KB) does not freeze UI | ☐ | Max 8000 chars stored |
+| O8 | Timeline shows continuity_summary_updated on save | ☐ | |
+
+---
+
 ## Automated test commands
 
 ```bash
 npm test
 npm run build
 npx vitest run tests/context-assembly.test.ts
+npx vitest run tests/continuity-summary.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts

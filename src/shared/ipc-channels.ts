@@ -6,6 +6,7 @@ export const IPC = {
   WORKSPACE_CREATE: "workspace:create",
   WORKSPACE_GET_ACTIVE: "workspace:get-active",
   WORKSPACE_SET_ACTIVE: "workspace:set-active",
+  WORKSPACE_UPDATE_CONTINUITY_SUMMARY: "workspace:update-continuity-summary",
   THREAD_LIST: "thread:list",
   THREAD_CREATE: "thread:create",
   MESSAGE_LIST: "message:list",
