@@ -12,8 +12,13 @@ import {
 } from "../electron/main/services/stream-runtime";
 import { MemorySecureStorageStub } from "../electron/main/secure-storage/memory-stub";
 import { __setSecureStorageForTests } from "../electron/main/secure-storage";
-import { listMessages } from "../electron/main/services/message-service";
-import { createThread, createWorkspace } from "../electron/main/services/workspace-service";
+import { listMessages, insertMessage } from "../electron/main/services/message-service";
+import {
+  createThread,
+  createWorkspace,
+  updateContinuitySummary,
+} from "../electron/main/services/workspace-service";
+import { DEFAULT_CONTEXT_MESSAGE_LIMIT } from "../electron/main/services/context-assembly";
 
 const mockSender = {
   isDestroyed: () => false,
@@ -107,6 +112,61 @@ describe("stream runtime", () => {
       )
       .get() as { c: number };
     expect(cancelled.c).toBeGreaterThan(0);
+  });
+
+  it("passes continuity summary into provider context without mutating messages", async () => {
+    const db = session();
+    const { ws, thread } = setupProvider(db);
+    updateContinuitySummary(db, ws.id, "Prefer strict TypeScript and local SQLite.");
+
+    for (let i = 0; i < DEFAULT_CONTEXT_MESSAGE_LIMIT + 5; i++) {
+      insertMessage(db, {
+        threadId: thread.id,
+        role: "user",
+        content: `history-${i}`,
+      });
+    }
+
+    const mock = getProviderAdapter("openai") as MockProviderAdapter;
+    const result = await startAssistantStream(db, mockSender, {
+      threadId: thread.id,
+      content: "Latest user turn",
+    });
+
+    expect(result.streamId).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(mock.lastStreamRequest).toBeTruthy();
+    const ctx = mock.lastStreamRequest!.messages;
+    const system = ctx.find((m) => m.role === "system");
+    expect(system?.content).toContain("Prefer strict TypeScript and local SQLite.");
+    expect(system?.content).toContain("Project: Stream WS");
+    expect(ctx[ctx.length - 1].content).toBe("Latest user turn");
+
+    const userTurns = ctx.filter((m) => m.role === "user");
+    expect(userTurns.length).toBeLessThanOrEqual(DEFAULT_CONTEXT_MESSAGE_LIMIT + 1);
+
+    const persisted = listMessages(db, thread.id);
+    expect(persisted.some((m) => m.content === "history-0")).toBe(true);
+    expect(persisted.some((m) => m.content === "Latest user turn")).toBe(true);
+    expect(persisted.filter((m) => m.role === "user").length).toBe(
+      DEFAULT_CONTEXT_MESSAGE_LIMIT + 6,
+    );
+  });
+
+  it("returns calm error when no provider is configured", async () => {
+    const db = session();
+    const ws = createWorkspace(db, "No provider");
+    const thread = createThread(db, ws.id, "Chat");
+
+    const result = await startAssistantStream(db, mockSender, {
+      threadId: thread.id,
+      content: "Hello",
+    });
+
+    expect(result.userMessage?.content).toBe("Hello");
+    expect(result.assistantMessage).toBeNull();
+    expect(result.error).toMatch(/Choose an AI provider/i);
   });
 
   it("records failure timeline event on stream error", async () => {

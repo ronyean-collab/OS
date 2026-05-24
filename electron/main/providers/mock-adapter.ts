@@ -11,6 +11,7 @@ export class MockProviderAdapter implements ProviderAdapter {
   chunks: string[] = ["Hello", " ", "world"];
   delayMs = 0;
   shouldFail = false;
+  lastStreamRequest: ProviderCompletionRequest | null = null;
   private abortControllers = new Map<string, AbortController>();
 
   isConfigured(apiKey: string | null): boolean {
@@ -30,11 +31,12 @@ export class MockProviderAdapter implements ProviderAdapter {
   }
 
   async streamMessage(
-    _request: ProviderCompletionRequest,
+    request: ProviderCompletionRequest,
     _apiKey: string,
     handlers: StreamLifecycleHandlers,
     signal?: AbortSignal,
   ): Promise<void> {
+    this.lastStreamRequest = request;
     let accumulated = "";
     for (const chunk of this.chunks) {
       if (signal?.aborted) {
