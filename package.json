@@ -6,11 +6,13 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "npm run rebuild:native:electron && electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "test": "vitest run",
+    "test": "npm run rebuild:native:node && vitest run",
     "test:verify": "node scripts/verify-foundation.mjs",
+    "rebuild:native:node": "npm rebuild better-sqlite3",
+    "rebuild:native:electron": "npx electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-builder install-app-deps || true"
   },
   "dependencies": {
