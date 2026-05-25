@@ -577,3 +577,37 @@ Implement a no-provider, cross-platform copy/paste path so users can continue co
 - Provider chat path remains intact
 - UI still needs manual external-chat validation in a real third-party AI window
 
+---
+
+## 2026-05-25 — Manual-first UX simplification / provider gate removal
+
+### Goal
+
+Remove provider setup as a blocker, make Manual Mode the primary default path, show past threads and the current chat first, and hide advanced tools unless the user opens them intentionally.
+
+### Implementation
+
+- Removed provider onboarding from the default renderer startup path
+- Updated the header to a single `Project tools` toggle instead of surfacing provider setup/export/import controls in the primary flow
+- Changed the main layout so the default screen is:
+  - left: threads
+  - center: current chat + manual composer
+  - right: advanced drawer only when opened
+- Made `ManualContextPackPanel` collapsible and auto-expanded when no provider is ready
+- Added manual-first composer copy and guidance so no-provider mode feels intentional rather than broken
+- Moved thread archive/deleted filters into a collapsed details section to reduce sidebar clutter
+- Kept provider setup available inside the Project tools drawer and clarified there that provider use is optional
+- Added regression coverage for manual-first onboarding defaults and later context-pack continuity
+
+### Verification
+
+- Focused tests: PASS
+- Full `npm test`: PASS
+- Full `npm run build`: PASS
+- Dev smoke: PASS (startup logs only; no live visual inspection in this session)
+
+### Notes
+
+- Existing backend functionality for provider setup, continuity summary, timeline, snapshots, export/import, and diagnostics was preserved
+- This change is focused on reducing visual overwhelm and removing provider-first UX pressure
+

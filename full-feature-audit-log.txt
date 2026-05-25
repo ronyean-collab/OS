@@ -191,11 +191,18 @@ Universal Context Pack / Manual AI Mode v1 (2026-05-18):
 - Saves pasted external AI responses back into the active thread as normal local messages
 - Works in no-provider mode and preserves export/import compatibility
 
+Manual-first UX simplification (2026-05-25):
+- Default landing view is now threads + current chat without provider onboarding
+- Manual Mode / Universal Context Pack is the primary path in the chat area
+- Provider setup remains available, but only inside the Project tools drawer
+- Continuity summary, snapshots, export/import, diagnostics, and other advanced tools are hidden from the main screen until opened
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
-None (verification/audit only).
-Prior session: package.json native rebuild scripts, verify-sqlite-electron.mjs (committed d55ac34).
+- Removed provider-gated default onboarding from the main renderer flow
+- Collapsed advanced panels behind a Project tools drawer while keeping the backend features intact
+- Added regression coverage for manual-first onboarding defaults and later context-pack continuity
 
 ================================================================================
 UNRESOLVED RISKS
@@ -204,15 +211,16 @@ UNRESOLVED RISKS
 - Live OpenAI streaming not tested in this pass
 - RAM profiling not performed
 - Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
+- Manual-first UI still needs live visual confirmation in the packaged renderer
 - Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
 - Token-aware truncation still not implemented
 
 ================================================================================
 RECOMMENDED NEXT PHASE
 ================================================================================
-1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P
-2. Use Universal Context Pack in a real external AI chat and paste the response back
-3. Confirm restart/export/import after a manual exchange
+1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q
+2. Confirm the app opens directly to threads + chat with Project tools closed by default
+3. Use Universal Context Pack in a real external AI chat and paste the response back
 4. Future small win: token-aware applyContextTruncation (no architecture change)
 
 ================================================================================

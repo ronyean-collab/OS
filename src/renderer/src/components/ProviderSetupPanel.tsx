@@ -133,6 +133,9 @@ export function ProviderSetupPanel({
   return (
     <div className="provider-setup-panel" data-testid="provider-setup-panel">
       <p className="muted small">
+        Provider setup is optional. Manual Mode works without any API key.
+      </p>
+      <p className="muted small">
         Workspace <span className="mono">{workspaceId.slice(0, 8)}…</span> —{" "}
         <span className={def.status === "ready" ? "provider-pill ready" : "provider-pill"}>
           {providerStatusLabel(def.status)}

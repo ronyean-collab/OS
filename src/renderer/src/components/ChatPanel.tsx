@@ -10,10 +10,12 @@ type Props = {
   loadingOlder: boolean;
   switching?: boolean;
   onLoadOlder: () => void;
+  providerReady: boolean;
   providerLabel: string | null;
   modelBadge: string | null;
   streaming: boolean;
   streamError: string | null;
+  manualModeHint: string | null;
   onSend: (content: string) => Promise<void>;
   onBuildContextPack: (input: {
     userRequest: string;
@@ -36,10 +38,12 @@ export function ChatPanel({
   loadingOlder,
   switching,
   onLoadOlder,
+  providerReady,
   providerLabel,
   modelBadge,
   streaming,
   streamError,
+  manualModeHint,
   onSend,
   onBuildContextPack,
   onSaveManualExchange,
@@ -103,6 +107,12 @@ export function ChatPanel({
         </div>
       )}
 
+      {!providerReady && manualModeHint && (
+        <div className="manual-mode-banner" role="status">
+          {manualModeHint}
+        </div>
+      )}
+
       {streamError && (
         <div className="stream-error" role="alert">
           {streamError}
@@ -147,7 +157,7 @@ export function ChatPanel({
       </div>
 
       <form
-        className="composer"
+        className={`composer${providerReady || streaming ? "" : " manual-first"}`}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -161,7 +171,13 @@ export function ChatPanel({
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={thread ? "Message your workspace…" : "Select a thread first"}
+          placeholder={
+            thread
+              ? providerReady
+                ? "Message your workspace…"
+                : "Write the next request you want to continue in any AI…"
+              : "Select a thread first"
+          }
           disabled={!thread || disabled || streaming}
           rows={3}
         />
@@ -169,13 +185,18 @@ export function ChatPanel({
           <button type="button" className="cancel" onClick={onCancelStream}>
             Cancel
           </button>
-        ) : (
+        ) : providerReady ? (
           <button
             type="submit"
             disabled={!thread || disabled || !draft.trim()}
           >
-            Send
+            Send with API
           </button>
+        ) : (
+          <p className="muted small composer-manual-hint">
+            No provider required. Use the same text below to preview a Context Pack,
+            copy it into any AI, then paste the reply back here.
+          </p>
         )}
       </form>
       <div className="manual-context-pack-wrap">
@@ -185,6 +206,7 @@ export function ChatPanel({
           onDraftChange={setDraft}
           disabled={disabled}
           streaming={streaming}
+          defaultOpen={!providerReady}
           onBuildPack={onBuildContextPack}
           onSaveExchange={onSaveManualExchange}
         />

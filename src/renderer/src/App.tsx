@@ -18,34 +18,14 @@ import type {
 } from "@shared/types";
 import { ImportPreviewModal } from "./components/ImportPreviewModal";
 import { ChatPanel } from "./components/ChatPanel";
-import { ProviderOnboarding } from "./components/ProviderOnboarding";
 import { OpsSidebar, type OpsTabId } from "./components/OpsSidebar";
-import {
-  CHOOSE_LATER_HINT_COPY,
-  NO_PROVIDER_BANNER_COPY,
-  completeOnboardingChooseLater,
-  completeOnboardingWithProvider,
-  loadOnboardingState,
-  mapChoiceToProviderId,
-  postOnboardingOpsTab,
-  shouldShowFirstRunWelcome,
-  shouldShowNoProviderBanner,
-  syncProviderConfiguredFlag,
-  type OnboardingProviderChoiceId,
-  type OnboardingState,
-} from "@shared/onboarding-state";
 import { RecoveryBanner } from "./components/RecoveryBanner";
-import { ReliabilityIndicators } from "./components/ReliabilityIndicators";
-import { WorkspaceHealthPanel } from "./components/WorkspaceHealthPanel";
-import { SnapshotPanel } from "./components/SnapshotPanel";
 import { ThreadSidebar } from "./components/ThreadSidebar";
-import { TimelinePanel } from "./components/TimelinePanel";
 import { AppFooter } from "./components/AppFooter";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { WorkspaceHeader } from "./components/WorkspaceHeader";
 import { EncryptedImportFlow } from "./components/EncryptedImportFlow";
 import { EncryptedExportDialog } from "./components/EncryptedExportDialog";
-import { BackupReminderBanner } from "./components/BackupReminderBanner";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -93,12 +73,11 @@ export function App() {
   const [timelineGroups, setTimelineGroups] = useState<TimelineGroup[]>([]);
   const [snapshots, setSnapshots] = useState<SnapshotRecord[]>([]);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(null);
-  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [opsTab, setOpsTab] = useState<OpsTabId>("overview");
   const [settingsProviderId, setSettingsProviderId] = useState<string | undefined>(
     undefined,
   );
-  const [providerSetupMessage, setProviderSetupMessage] = useState<string | null>(null);
+  const [showProjectTools, setShowProjectTools] = useState(false);
   const [showArchivedThreads, setShowArchivedThreads] = useState(false);
   const [showDeletedThreads, setShowDeletedThreads] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -119,19 +98,10 @@ export function App() {
     json: string;
     fileName: string;
   } | null>(null);
-  const [backupReminderMessage, setBackupReminderMessage] = useState<string | null>(
-    null,
-  );
   const importInputRef = useRef<HTMLInputElement>(null);
   const encryptedImportInputRef = useRef<HTMLInputElement>(null);
   const activeStreamIdRef = useRef<string | null>(null);
   const assistantMessageIdRef = useRef<string | null>(null);
-
-  const legacyOnboardingSkipKey = (wsId: string) =>
-    `continuity.providerOnboarding.skipped.${wsId}`;
-
-  const storage =
-    typeof localStorage !== "undefined" ? localStorage : null;
 
   const isProviderConfigured = (config: ProviderConfig | null) => {
     if (!config?.enabled) return false;
@@ -223,25 +193,6 @@ export function App() {
     }
     const [config] = await Promise.all([continuity.getProviderConfig(ws.id)]);
     setProviderConfig(config);
-    const configured = isProviderConfigured(config);
-    if (storage) {
-      let state = loadOnboardingState(storage, ws.id);
-      if (
-        !state.onboardingCompleted &&
-        storage.getItem(legacyOnboardingSkipKey(ws.id)) === "1"
-      ) {
-        state = completeOnboardingChooseLater(storage, ws.id);
-        storage.removeItem(legacyOnboardingSkipKey(ws.id));
-      }
-      state = syncProviderConfiguredFlag(storage, ws.id, configured);
-      setOnboardingState(state);
-    } else {
-      setOnboardingState({
-        onboardingCompleted: configured,
-        preferredProvider: config?.provider ?? null,
-        providerConfigured: configured,
-      });
-    }
     await refreshOpsPanels(ws.id);
 
     const repair = await continuity.repairActiveThread(ws.id);
@@ -295,16 +246,6 @@ export function App() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
-
-  useEffect(() => {
-    if (!workspace || loading || appState?.recoveryMode) return;
-    void continuity.getBackupReminderStatus().then((status) => {
-      if (status.shouldShow && status.message) {
-        void continuity.recordBackupReminderShown();
-        setBackupReminderMessage(status.message);
-      }
-    });
-  }, [workspace, loading, appState?.recoveryMode]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -481,6 +422,12 @@ export function App() {
 
   const handleSendMessage = async (content: string) => {
     if (!activeThread || streaming) return;
+    if (!providerConfig || !isProviderConfigured(providerConfig) || !providerConfig.runtimeReady) {
+      setStreamError(
+        "Manual Mode is ready. Copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.",
+      );
+      return;
+    }
     setStreamError(null);
 
     const result = await continuity.startMessageStream({
@@ -504,7 +451,9 @@ export function App() {
       activeStreamIdRef.current = result.streamId;
       setStreaming(true);
     } else if (!result.assistantMessage) {
-      setStreamError("Configure a provider and API key in settings to get assistant replies.");
+      setStreamError(
+        "Manual Mode is ready. Copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.",
+      );
       if (workspace) await refreshOpsPanels(workspace.id);
     }
   };
@@ -573,24 +522,8 @@ export function App() {
       );
       setProviderConfig(config);
       setSettingsProviderId(undefined);
-      const configured = isProviderConfigured(config);
-      if (storage) {
-        const state = syncProviderConfiguredFlag(
-          storage,
-          workspace.id,
-          configured,
-        );
-        setOnboardingState(state);
-      }
-      const savedMsg = config.runtimeReady
-        ? `${config.displayName} saved. You can start chatting.`
-        : `${config.displayName} setup saved. Assistant runtime support is coming next — use OpenAI to chat today.`;
-      setProviderSetupMessage(savedMsg);
       await refreshOpsPanels(workspace.id);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not save provider configuration.";
-      setProviderSetupMessage(message);
       if (import.meta.env.DEV) {
         console.error("[continuity] save provider failed", err);
       }
@@ -624,32 +557,6 @@ export function App() {
     const config = await continuity.removeProviderKey(workspace.id, provider);
     if (config) setProviderConfig(config);
     else setProviderConfig(null);
-  };
-
-  const openProviderTab = (providerId?: string) => {
-    setSettingsProviderId(providerId);
-    setOpsTab("provider");
-  };
-
-  const handleOnboardingChoice = (choiceId: OnboardingProviderChoiceId) => {
-    if (!workspace || !storage) return;
-    const providerId = mapChoiceToProviderId(choiceId);
-    if (providerId) {
-      const state = completeOnboardingWithProvider(
-        storage,
-        workspace.id,
-        providerId,
-        isProviderConfigured(providerConfig),
-      );
-      setOnboardingState(state);
-      setSettingsProviderId(providerId);
-      setOpsTab(postOnboardingOpsTab(choiceId));
-      setProviderSetupMessage(null);
-    } else {
-      const state = completeOnboardingChooseLater(storage, workspace.id);
-      setOnboardingState(state);
-      setProviderSetupMessage(CHOOSE_LATER_HINT_COPY);
-    }
   };
 
   const handleCreateSnapshot = async (label: string) => {
@@ -811,8 +718,6 @@ export function App() {
       a.click();
       URL.revokeObjectURL(url);
       setExportMessage(`Workspace export saved${warnNote}.`);
-      setBackupReminderMessage(null);
-      void continuity.dismissBackupReminder();
     } catch (err) {
       setExportMessage(err instanceof Error ? err.message : "Export failed.");
     } finally {
@@ -820,21 +725,16 @@ export function App() {
     }
   };
 
-  const showWelcome =
-    workspace != null &&
-    onboardingState != null &&
-    shouldShowFirstRunWelcome(onboardingState);
-  const showNoProviderBanner =
-    onboardingState != null &&
-    shouldShowNoProviderBanner(
-      onboardingState,
-      isProviderConfigured(providerConfig),
-    );
-
+  const providerSendEnabled =
+    providerConfig != null &&
+    isProviderConfigured(providerConfig) &&
+    providerConfig.runtimeReady;
+  const manualModeHint =
+    "Manual Mode is ready. You can copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.";
   const providerBadge = providerConfig
     ? `${providerConfig.displayName} · ${providerConfig.model}`
     : null;
-  const modelBadge = providerConfig?.model ?? null;
+  const modelBadge = providerSendEnabled ? providerConfig?.model ?? null : null;
 
   const providerPanelProps =
     workspace != null
@@ -897,22 +797,6 @@ export function App() {
           <p>{exportMessage}</p>
         </div>
       )}
-      {providerSetupMessage && (
-        <div className="reliability-banner" role="status">
-          <p>{providerSetupMessage}</p>
-        </div>
-      )}
-
-      {backupReminderMessage && (
-        <BackupReminderBanner
-          message={backupReminderMessage}
-          onExport={() => void handleExport()}
-          onDismiss={() => {
-            void continuity.dismissBackupReminder();
-            setBackupReminderMessage(null);
-          }}
-        />
-      )}
 
       <input
         ref={importInputRef}
@@ -943,34 +827,13 @@ export function App() {
 
       <WorkspaceHeader
         workspace={workspace}
-        exporting={exporting}
-        recoveryMode={appState?.recoveryMode ?? false}
-        onExport={handleExport}
-        onEncryptedExport={handleEncryptedExport}
-        onImport={() => importInputRef.current?.click()}
-        onImportEncrypted={openEncryptedImportPicker}
-        onOpenDiagnostics={() => setShowDiagnostics(true)}
         providerBadge={providerBadge}
         providerRuntimeReady={providerConfig?.runtimeReady ?? false}
-        onOpenSettings={() => openProviderTab()}
+        projectToolsOpen={showProjectTools}
+        onToggleProjectTools={() => setShowProjectTools((value) => !value)}
       />
 
-      {showWelcome && (
-        <ProviderOnboarding onSelectProvider={handleOnboardingChoice} />
-      )}
-
-      {!showWelcome && showNoProviderBanner && (
-        <div className="reliability-banner calm" role="status">
-          <p>
-            {onboardingState?.preferredProvider == null
-              ? CHOOSE_LATER_HINT_COPY
-              : NO_PROVIDER_BANNER_COPY}
-          </p>
-        </div>
-      )}
-
-      {!showWelcome && (
-      <div className="main-row">
+      <div className={`main-row${showProjectTools ? " with-tools" : " manual-first-layout"}`}>
         <ThreadSidebar
           threads={threads}
           activeThreadId={activeThread?.id ?? null}
@@ -1003,37 +866,47 @@ export function App() {
           hasMoreOlder={hasMoreOlderMessages}
           loadingOlder={loadingOlderMessages}
           onLoadOlder={() => void handleLoadOlderMessages()}
-          providerLabel={providerBadge}
+          providerReady={providerSendEnabled}
+          providerLabel={providerSendEnabled ? providerBadge : null}
           modelBadge={modelBadge}
           streaming={streaming}
           streamError={streamError}
+          manualModeHint={manualModeHint}
           onSend={handleSendMessage}
           onBuildContextPack={handleBuildContextPack}
           onSaveManualExchange={handleSaveManualExchange}
           onCancelStream={handleCancelStream}
           disabled={appState?.recoveryMode ?? false}
         />
-        <OpsSidebar
-          activeTab={opsTab}
-          onTabChange={setOpsTab}
-          appState={appState}
-          autosaveStatus={autosaveStatus}
-          workspaceHealth={workspaceHealth}
-          healthLoading={healthLoading}
-          timelineGroups={timelineGroups}
-          snapshots={snapshots}
-          workspaceId={workspace?.id ?? null}
-          recoveryMode={appState?.recoveryMode ?? false}
-          providerPanel={providerPanelProps}
-          onCreateSnapshot={handleCreateSnapshot}
-          onRestorePreview={continuity.getRestorePreview}
-          onRestore={continuity.restoreSnapshot}
-          onRestored={handleAfterRestore}
-          continuitySummary={workspace?.continuitySummary ?? null}
-          onSaveContinuitySummary={handleSaveContinuitySummary}
-        />
+        {showProjectTools && (
+          <OpsSidebar
+            activeTab={opsTab}
+            onTabChange={setOpsTab}
+            onClose={() => setShowProjectTools(false)}
+            appState={appState}
+            autosaveStatus={autosaveStatus}
+            workspaceHealth={workspaceHealth}
+            healthLoading={healthLoading}
+            timelineGroups={timelineGroups}
+            snapshots={snapshots}
+            workspaceId={workspace?.id ?? null}
+            recoveryMode={appState?.recoveryMode ?? false}
+            exporting={exporting}
+            providerPanel={providerPanelProps}
+            onImport={() => importInputRef.current?.click()}
+            onImportEncrypted={openEncryptedImportPicker}
+            onExport={() => void handleExport()}
+            onEncryptedExport={handleEncryptedExport}
+            onOpenDiagnostics={() => setShowDiagnostics(true)}
+            onCreateSnapshot={handleCreateSnapshot}
+            onRestorePreview={continuity.getRestorePreview}
+            onRestore={continuity.restoreSnapshot}
+            onRestored={handleAfterRestore}
+            continuitySummary={workspace?.continuitySummary ?? null}
+            onSaveContinuitySummary={handleSaveContinuitySummary}
+          />
+        )}
       </div>
-      )}
 
       {showEncryptedExport && workspace && (
         <EncryptedExportDialog

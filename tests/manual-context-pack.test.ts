@@ -179,4 +179,29 @@ describe("manual context pack", () => {
       importedMessages.some((m) => m.content === "Triage blockers, then apply the safe fix."),
     ).toBe(true);
   });
+
+  it("includes a previously saved manual exchange in a later context pack", () => {
+    const db = session();
+    const ws = createWorkspace(db, "Manual continuity");
+    const thread = createThread(db, ws.id, "Carry forward");
+
+    saveManualExchange(db, {
+      workspaceId: ws.id,
+      threadId: thread.id,
+      userRequest: "Summarize the next safe UX step.",
+      assistantResponse: "Hide advanced tools behind a project tools drawer.",
+      targetPlatform: "ChatGPT",
+    });
+
+    const result = buildUniversalContextPack(db, {
+      workspaceId: ws.id,
+      threadId: thread.id,
+      userRequest: "Continue from the saved result.",
+      targetPlatform: "Claude",
+    });
+
+    expect(result.text).toContain("Summarize the next safe UX step.");
+    expect(result.text).toContain("Hide advanced tools behind a project tools drawer.");
+    expect(result.text).toContain("Continue from the saved result.");
+  });
 });

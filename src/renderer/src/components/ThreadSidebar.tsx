@@ -104,26 +104,29 @@ export function ThreadSidebar({
         </button>
       </div>
 
-      <div className="thread-sidebar-toggles">
-        <label className="thread-toggle">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => onToggleShowArchived(e.target.checked)}
-            disabled={disabled}
-          />
-          Show archived
-        </label>
-        <label className="thread-toggle">
-          <input
-            type="checkbox"
-            checked={showDeleted}
-            onChange={(e) => onToggleShowDeleted(e.target.checked)}
-            disabled={disabled}
-          />
-          Show deleted
-        </label>
-      </div>
+      <details className="thread-sidebar-filters">
+        <summary className="thread-sidebar-filters-summary">More thread views</summary>
+        <div className="thread-sidebar-toggles">
+          <label className="thread-toggle">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => onToggleShowArchived(e.target.checked)}
+              disabled={disabled}
+            />
+            Show archived
+          </label>
+          <label className="thread-toggle">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => onToggleShowDeleted(e.target.checked)}
+              disabled={disabled}
+            />
+            Show deleted
+          </label>
+        </div>
+      </details>
 
       <ul className="thread-list">
         {visibleThreads.length === 0 && (
@@ -259,7 +262,7 @@ export function ThreadSidebar({
           );
         })}
       </ul>
-      <p className="muted small thread-hint">Use ⋯ on a thread for more actions.</p>
+      <p className="muted small thread-hint">Use ⋯ on any thread for rename, move, archive, or delete.</p>
 
       {pendingDelete && (
         <ThreadDeleteConfirm

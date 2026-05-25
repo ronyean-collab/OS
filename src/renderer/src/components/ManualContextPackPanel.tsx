@@ -7,6 +7,7 @@ type Props = {
   onDraftChange: (value: string) => void;
   disabled: boolean;
   streaming: boolean;
+  defaultOpen?: boolean;
   onBuildPack: (input: {
     userRequest: string;
     targetPlatform: string;
@@ -33,6 +34,7 @@ export function ManualContextPackPanel({
   onDraftChange,
   disabled,
   streaming,
+  defaultOpen,
   onBuildPack,
   onSaveExchange,
 }: Props) {
@@ -42,6 +44,7 @@ export function ManualContextPackPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(Boolean(defaultOpen));
 
   useEffect(() => {
     setPack(null);
@@ -49,6 +52,12 @@ export function ManualContextPackPanel({
     setError(null);
     setStatus(null);
   }, [thread?.id, draft, targetPlatform]);
+
+  useEffect(() => {
+    if (defaultOpen) {
+      setExpanded(true);
+    }
+  }, [defaultOpen]);
 
   const handleBuild = async () => {
     setBusy(true);
@@ -101,99 +110,111 @@ export function ManualContextPackPanel({
 
   return (
     <section className="manual-context-pack" aria-label="Universal Context Pack">
-      <div className="manual-context-pack-header">
-        <div>
-          <h3>Continue in Any AI</h3>
-          <p className="muted small">
-            Use this when you want to continue in ChatGPT, Claude, Gemini, or
-            another AI without an API key.
-          </p>
-          <p className="muted small">
-            This does not send data automatically. You choose what to copy.
-          </p>
-        </div>
-      </div>
-
-      <label className="manual-context-pack-field">
-        <span>Target platform</span>
-        <select
-          value={targetPlatform}
-          onChange={(e) => setTargetPlatform(e.target.value)}
-          disabled={disabled || streaming || !thread}
-        >
-          {TARGET_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="manual-context-pack-actions">
-        <button
-          type="button"
-          className="secondary"
-          disabled={!thread || disabled || streaming || !draft.trim() || busy}
-          onClick={() => void handleBuild()}
-        >
-          {busy ? "Building…" : "Preview Context Pack"}
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          disabled={!pack?.text || busy}
-          onClick={() => void handleCopy()}
-        >
-          Copy Context Pack
-        </button>
-      </div>
-
-      {pack && (
-        <>
-          <label className="manual-context-pack-field">
-            <span>Context Pack preview</span>
-            <textarea
-              className="manual-context-pack-preview"
-              readOnly
-              value={pack.text}
-              rows={14}
-            />
-          </label>
-          <p className="muted small">
-            Includes {pack.includedRecentMessageCount} recent saved messages.
-            {pack.truncatedOlderMessages ? " Older history was omitted for size." : ""}
-          </p>
-        </>
-      )}
-
-      <label className="manual-context-pack-field">
-        <span>Paste AI response back here</span>
-        <textarea
-          value={assistantResponse}
-          onChange={(e) => setAssistantResponse(e.target.value)}
-          rows={6}
-          disabled={!thread || disabled || busy}
-          placeholder="Paste the response from ChatGPT, Claude, Gemini, OpenRouter, Ollama, or another AI."
-        />
-      </label>
-
       <button
         type="button"
-        disabled={
-          !thread ||
-          disabled ||
-          busy ||
-          !pack?.text ||
-          !draft.trim() ||
-          !assistantResponse.trim()
-        }
-        onClick={() => void handleSave()}
+        className="manual-context-pack-toggle"
+        onClick={() => setExpanded((value) => !value)}
       >
-        {busy ? "Saving…" : "Save Exchange"}
+        <span>Continue in Any AI</span>
+        <span className="muted small">{expanded ? "Hide" : "Show"}</span>
       </button>
 
-      {status && <p className="muted small">{status}</p>}
-      {error && <p className="stream-error">{error}</p>}
+      {expanded && (
+        <>
+          <div className="manual-context-pack-header">
+            <div>
+              <p className="muted small">
+                Use this when you want to continue in ChatGPT, Claude, Gemini, or
+                another AI without an API key.
+              </p>
+              <p className="muted small">
+                This does not send data automatically. You choose what to copy.
+              </p>
+            </div>
+          </div>
+
+          <label className="manual-context-pack-field">
+            <span>Target platform</span>
+            <select
+              value={targetPlatform}
+              onChange={(e) => setTargetPlatform(e.target.value)}
+              disabled={disabled || streaming || !thread}
+            >
+              {TARGET_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="manual-context-pack-actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={!thread || disabled || streaming || !draft.trim() || busy}
+              onClick={() => void handleBuild()}
+            >
+              {busy ? "Building…" : "Preview Context Pack"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!pack?.text || busy}
+              onClick={() => void handleCopy()}
+            >
+              Copy Context Pack
+            </button>
+          </div>
+
+          {pack && (
+            <>
+              <label className="manual-context-pack-field">
+                <span>Context Pack preview</span>
+                <textarea
+                  className="manual-context-pack-preview"
+                  readOnly
+                  value={pack.text}
+                  rows={14}
+                />
+              </label>
+              <p className="muted small">
+                Includes {pack.includedRecentMessageCount} recent saved messages.
+                {pack.truncatedOlderMessages ? " Older history was omitted for size." : ""}
+              </p>
+            </>
+          )}
+
+          <label className="manual-context-pack-field">
+            <span>Paste AI response back here</span>
+            <textarea
+              value={assistantResponse}
+              onChange={(e) => setAssistantResponse(e.target.value)}
+              rows={6}
+              disabled={!thread || disabled || busy}
+              placeholder="Paste the response from ChatGPT, Claude, Gemini, OpenRouter, Ollama, or another AI."
+            />
+          </label>
+
+          <button
+            type="button"
+            disabled={
+              !thread ||
+              disabled ||
+              busy ||
+              !pack?.text ||
+              !draft.trim() ||
+              !assistantResponse.trim()
+            }
+            onClick={() => void handleSave()}
+          >
+            {busy ? "Saving…" : "Save Exchange"}
+          </button>
+
+          {status && <p className="muted small">{status}</p>}
+          {error && <p className="stream-error">{error}</p>}
+        </>
+      )}
     </section>
   );
 }

@@ -31,17 +31,17 @@ export const ONBOARDING_PROVIDER_CHOICES: ReadonlyArray<{
 export const WELCOME_COPY = {
   title: "Welcome to ContinuityOS",
   tagline:
-    "ContinuityOS keeps your AI work organized, saved, and restore-ready.",
-  question: "Which AI provider do you want to use first?",
+    "ContinuityOS keeps your AI work organized so you can continue in any AI without losing context.",
+  question: "Manual Mode is ready.",
   subtitle:
-    "Choose the AI provider you want to connect first. You can change this anytime.",
+    "Open a thread, copy a Context Pack into any AI, and paste the reply back here. API providers are optional.",
 } as const;
 
 export const NO_PROVIDER_BANNER_COPY =
-  "No AI provider is connected yet. You can still view and manage your workspace.";
+  "Manual Mode is ready. You can copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.";
 
 export const CHOOSE_LATER_HINT_COPY =
-  "You can connect an AI provider anytime from Provider settings.";
+  "Manual Mode is ready. You can connect an AI provider anytime from Project tools.";
 
 export type StorageLike = {
   getItem(key: string): string | null;
@@ -55,7 +55,7 @@ export function onboardingStorageKey(workspaceId: string): string {
 
 export function defaultOnboardingState(): OnboardingState {
   return {
-    onboardingCompleted: false,
+    onboardingCompleted: true,
     preferredProvider: null,
     providerConfigured: false,
   };
@@ -114,7 +114,7 @@ export function shouldShowNoProviderBanner(
   state: OnboardingState,
   providerConfigured: boolean,
 ): boolean {
-  return state.onboardingCompleted && !providerConfigured;
+  return state.onboardingCompleted && !providerConfigured && Boolean(state.preferredProvider);
 }
 
 export function completeOnboardingWithProvider(

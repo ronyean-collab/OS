@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 32 files / 168 tests | ☐ | |
+| H1 | `npm test` — 32 files / 169 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -203,7 +203,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| O1 | Overview tab shows Continuity summary panel | ☐ | Right ops sidebar |
+| O1 | Project tools shows Continuity summary panel | ☐ | Hidden from main chat by default |
 | O2 | Create/edit/save summary persists after restart | ☐ | |
 | O3 | Empty summary does not break chat | ☐ | |
 | O4 | Summary visible in overview; chat history unchanged | ☐ | Messages not deleted |
@@ -231,6 +231,22 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
+## Q. Manual-first UX / provider-optional flow
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| Q1 | Fresh app opens to threads + current chat without provider onboarding | ☐ | |
+| Q2 | Provider setup does not block startup or first message draft entry | ☐ | |
+| Q3 | Manual Mode / Continue in Any AI is visible from the main chat area | ☐ | |
+| Q4 | User can prepare and copy a Context Pack without any API key | ☐ | |
+| Q5 | User can paste an external AI response and save the exchange without any API key | ☐ | |
+| Q6 | Provider settings remain accessible but only inside Project tools | ☐ | |
+| Q7 | Export/import/diagnostics/snapshots are hidden from the main screen but still accessible | ☐ | |
+| Q8 | Thread list remains visible by default with rename/move/archive/delete reachable from the thread menu | ☐ | |
+| Q9 | No-provider state feels calm and non-blocking | ☐ | |
+
+---
+
 ## Automated test commands
 
 ```bash
@@ -239,10 +255,14 @@ npm run build
 npx vitest run tests/context-assembly.test.ts
 npx vitest run tests/continuity-summary.test.ts
 npx vitest run tests/manual-context-pack.test.ts
+npx vitest run tests/onboarding-flow.test.ts
+npx vitest run tests/provider-setup.test.ts
+npx vitest run tests/provider-multi.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts
 npx vitest run tests/thread-management.test.ts
+npx vitest run tests/thread-sidebar-runtime.test.ts
 ```
 
 ---

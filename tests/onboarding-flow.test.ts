@@ -36,9 +36,10 @@ describe("onboarding flow state", () => {
     storage = new MemoryStorage();
   });
 
-  it("first-run onboarding appears when not completed", () => {
+  it("manual-first default state does not block app use", () => {
     const state = defaultOnboardingState();
-    expect(shouldShowFirstRunWelcome(state)).toBe(true);
+    expect(state.onboardingCompleted).toBe(true);
+    expect(shouldShowFirstRunWelcome(state)).toBe(false);
     expect(shouldShowNoProviderBanner(state, false)).toBe(false);
   });
 
@@ -61,12 +62,12 @@ describe("onboarding flow state", () => {
     expect(state.preferredProvider).toBe("anthropic");
   });
 
-  it("choose later enters app without provider", () => {
+  it("choose later enters app without provider and without a blocking banner", () => {
     const state = completeOnboardingChooseLater(storage, wsId);
     expect(state.onboardingCompleted).toBe(true);
     expect(state.preferredProvider).toBeNull();
     expect(state.providerConfigured).toBe(false);
-    expect(shouldShowNoProviderBanner(state, false)).toBe(true);
+    expect(shouldShowNoProviderBanner(state, false)).toBe(false);
   });
 
   it("preferred provider persists after restart simulation", () => {
@@ -80,6 +81,7 @@ describe("onboarding flow state", () => {
   it("welcome screen stays minimal without setup clutter", () => {
     expect(welcomeScreenIsMinimal()).toBe(true);
     expect(WELCOME_COPY.tagline).not.toMatch(/api key/i);
+    expect(WELCOME_COPY.subtitle).toMatch(/optional/i);
     expect(ONBOARDING_PROVIDER_CHOICES.map((c) => c.label).join(" ")).not.toMatch(
       /billing|setup step/i,
     );
