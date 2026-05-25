@@ -21,7 +21,7 @@ export function WorkspaceHeader({
         <p className="eyebrow">ContinuityOS</p>
         <h1>{workspace?.name ?? "No workspace"}</h1>
         <p className="muted small workspace-header-subtitle">
-          Past threads on the left, current chat in the center, and Continue in Any AI ready when you need it.
+          Chat normally. ContinuityOS saves your messages locally. Use Continue in Any AI when you want an AI reply without an API key.
         </p>
         {providerBadge && providerRuntimeReady && (
           <p className="muted small workspace-header-status">

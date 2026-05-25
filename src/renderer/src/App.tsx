@@ -26,6 +26,10 @@ import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { WorkspaceHeader } from "./components/WorkspaceHeader";
 import { EncryptedImportFlow } from "./components/EncryptedImportFlow";
 import { EncryptedExportDialog } from "./components/EncryptedExportDialog";
+import {
+  buildManualFallbackState,
+  type ManualFallbackState,
+} from "./manual-fallback";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -88,6 +92,7 @@ export function App() {
   const [threadSwitching, setThreadSwitching] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [manualFallback, setManualFallback] = useState<ManualFallbackState | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -102,23 +107,12 @@ export function App() {
   const encryptedImportInputRef = useRef<HTMLInputElement>(null);
   const activeStreamIdRef = useRef<string | null>(null);
   const assistantMessageIdRef = useRef<string | null>(null);
+  const latestSentUserMessageIdRef = useRef<string | null>(null);
 
   const isProviderConfigured = (config: ProviderConfig | null) => {
     if (!config?.enabled) return false;
     if (config.provider === "ollama") return true;
     return config.hasApiKey;
-  };
-
-  const isManualOnlyError = (message: string) =>
-    /choose an ai provider|provider settings|not fully configured|setup|base url/i.test(message);
-
-  const manualFallbackMessage = (message?: string) => {
-    if (!message) return null;
-    if (/thread|workspace/i.test(message)) return message;
-    if (isManualOnlyError(message) || !isProviderConfigured(providerConfig)) {
-      return "Message saved. Copy a Context Pack into any AI, then paste the response back.";
-    }
-    return "Provider unavailable. Use Continue in Any AI to get a response.";
   };
 
   const refreshAppState = useCallback(async () => {
@@ -181,12 +175,16 @@ export function App() {
         await continuity.setActiveThread(repair.thread.id);
         await loadThreadMessages(repair.thread.id);
         setStreamError(null);
+        setManualFallback((prev) =>
+          prev?.threadId === repair.thread?.id ? prev : null,
+        );
       } else {
         setActiveThread(null);
         setMessages([]);
         setMessageTotalCount(0);
         setHasMoreOlderMessages(false);
         setOldestMessageCursor(null);
+        setManualFallback(null);
       }
     },
     [loadThreadMessages],
@@ -201,6 +199,7 @@ export function App() {
       setTimelineGroups([]);
       setSnapshots([]);
       setProviderConfig(null);
+      setManualFallback(null);
       return;
     }
     const [config] = await Promise.all([continuity.getProviderConfig(ws.id)]);
@@ -303,7 +302,9 @@ export function App() {
         setStreaming(false);
         activeStreamIdRef.current = null;
         assistantMessageIdRef.current = null;
+        latestSentUserMessageIdRef.current = null;
         setStreamError(null);
+        setManualFallback(null);
         if (workspace) void refreshOpsPanels(workspace.id);
       },
       onError: (event: StreamErrorEvent) => {
@@ -316,16 +317,32 @@ export function App() {
         setStreaming(false);
         activeStreamIdRef.current = null;
         assistantMessageIdRef.current = null;
+        const fallback = activeThread
+          ? buildManualFallbackState({
+              threadId: activeThread.id,
+              sourceMessageId: latestSentUserMessageIdRef.current,
+              error: event.error,
+              providerConfigured: isProviderConfigured(providerConfig),
+            })
+          : null;
         if (!event.cancelled) {
-          setStreamError(manualFallbackMessage(event.error) ?? event.error);
+          if (fallback) {
+            setManualFallback(fallback);
+            setStreamError(null);
+          } else {
+            setStreamError(event.error);
+            setManualFallback(null);
+          }
         } else {
           setStreamError(null);
+          setManualFallback(null);
         }
+        latestSentUserMessageIdRef.current = null;
         if (workspace) void refreshOpsPanels(workspace.id);
       },
     });
     return cleanup;
-  }, [workspace, refreshOpsPanels]);
+  }, [activeThread, providerConfig, refreshOpsPanels, workspace]);
 
   const handleCreateThread = async () => {
     if (!workspace) return;
@@ -337,6 +354,7 @@ export function App() {
     setActiveThread(thread);
     await continuity.setActiveThread(thread.id);
     setMessages([]);
+    setManualFallback(null);
     await refreshOpsPanels(workspace.id);
   };
 
@@ -348,6 +366,7 @@ export function App() {
       await continuity.setActiveThread(thread.id);
       await loadThreadMessages(thread.id);
       setStreamError(null);
+      setManualFallback((prev) => (prev?.threadId === thread.id ? prev : null));
     } finally {
       setThreadSwitching(false);
     }
@@ -435,6 +454,7 @@ export function App() {
   const handleSendMessage = async (content: string) => {
     if (!activeThread || streaming) return;
     setStreamError(null);
+    setManualFallback(null);
 
     const result = await continuity.startMessageStream({
       threadId: activeThread.id,
@@ -444,6 +464,7 @@ export function App() {
     const next: Message[] = [];
     if (result.userMessage) {
       next.push(result.userMessage);
+      latestSentUserMessageIdRef.current = result.userMessage.id;
     }
     if (result.assistantMessage) {
       next.push(result.assistantMessage);
@@ -454,7 +475,17 @@ export function App() {
     }
 
     if (result.error) {
-      setStreamError(manualFallbackMessage(result.error) ?? result.error);
+      const fallback = buildManualFallbackState({
+        threadId: activeThread.id,
+        sourceMessageId: result.userMessage?.id ?? null,
+        error: result.error,
+        providerConfigured: isProviderConfigured(providerConfig),
+      });
+      if (fallback) {
+        setManualFallback(fallback);
+      } else {
+        setStreamError(result.error);
+      }
       if (workspace) await refreshOpsPanels(workspace.id);
       return;
     }
@@ -463,9 +494,14 @@ export function App() {
       activeStreamIdRef.current = result.streamId;
       setStreaming(true);
     } else if (!result.assistantMessage) {
-      setStreamError(
-        "Message saved. Copy a Context Pack into any AI, then paste the response back.",
-      );
+      const fallback = buildManualFallbackState({
+        threadId: activeThread.id,
+        sourceMessageId: result.userMessage?.id ?? null,
+        providerConfigured: isProviderConfigured(providerConfig),
+      });
+      if (fallback) {
+        setManualFallback(fallback);
+      }
       if (workspace) await refreshOpsPanels(workspace.id);
     }
   };
@@ -504,6 +540,7 @@ export function App() {
     });
     await reloadThreads(workspace.id);
     await loadThreadMessages(activeThread.id);
+    setManualFallback(null);
     await refreshOpsPanels(workspace.id);
   };
 
@@ -881,6 +918,7 @@ export function App() {
           modelBadge={modelBadge}
           streaming={streaming}
           streamError={streamError}
+          manualFallback={manualFallback}
           onSend={handleSendMessage}
           onBuildContextPack={handleBuildContextPack}
           onSaveManualAssistantResponse={handleSaveManualAssistantResponse}

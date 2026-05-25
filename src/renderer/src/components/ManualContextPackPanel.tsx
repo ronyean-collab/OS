@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Message, Thread, UniversalContextPackResult } from "@shared/types";
+import type { ManualFallbackKind } from "../manual-fallback";
 
 type Props = {
   thread: Thread | null;
   latestUserMessage: Message | null;
   disabled: boolean;
   streaming: boolean;
+  fallbackKind: ManualFallbackKind;
+  highlighted?: boolean;
+  autoOpenSignal?: string | null;
+  pasteFocusSignal?: number;
   onBuildPack: (input: {
     userRequest: string;
     targetPlatform: string;
@@ -31,6 +36,10 @@ export function ManualContextPackPanel({
   latestUserMessage,
   disabled,
   streaming,
+  fallbackKind,
+  highlighted,
+  autoOpenSignal,
+  pasteFocusSignal,
   onBuildPack,
   onSaveAssistantResponse,
 }: Props) {
@@ -42,6 +51,7 @@ export function ManualContextPackPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const assistantResponseRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setPack(null);
@@ -52,7 +62,23 @@ export function ManualContextPackPanel({
     setShowPreview(false);
   }, [thread?.id, latestUserMessage?.id, targetPlatform]);
 
+  useEffect(() => {
+    if (autoOpenSignal && latestUserMessage?.id === autoOpenSignal) {
+      setExpanded(true);
+    }
+  }, [autoOpenSignal, latestUserMessage?.id]);
+
+  useEffect(() => {
+    if (!pasteFocusSignal) return;
+    setExpanded(true);
+    window.setTimeout(() => assistantResponseRef.current?.focus(), 0);
+  }, [pasteFocusSignal]);
+
   const activeRequest = latestUserMessage?.content.trim() ?? "";
+  const introCopy =
+    fallbackKind === "provider-unavailable"
+      ? "Message saved locally. Provider unavailable, but ContinuityOS prepared a Context Pack so you can continue in ChatGPT, Claude, Gemini, or another AI."
+      : "Message saved locally. No AI provider is connected, so ContinuityOS prepared a Context Pack for ChatGPT, Claude, Gemini, or another AI.";
 
   const buildPack = async (): Promise<UniversalContextPackResult> => {
     const built = await onBuildPack({
@@ -129,11 +155,13 @@ export function ManualContextPackPanel({
 
   return (
     <section className="manual-context-pack" aria-label="Universal Context Pack">
-      <div className="manual-context-pack-header compact">
+      <div
+        className={`manual-context-pack-header compact${highlighted ? " highlighted" : ""}`}
+      >
         <div>
           <h3>Continue in Any AI</h3>
           <p className="muted small">
-            Message saved. Copy a Context Pack into any AI, then paste the response back.
+            {introCopy}
           </p>
           <p className="muted small">
             ContinuityOS does not send this automatically. You choose what to copy.
@@ -209,6 +237,7 @@ export function ManualContextPackPanel({
           <label className="manual-context-pack-field">
             <span>Paste AI response back here</span>
             <textarea
+              ref={assistantResponseRef}
               value={assistantResponse}
               onChange={(e) => setAssistantResponse(e.target.value)}
               rows={6}

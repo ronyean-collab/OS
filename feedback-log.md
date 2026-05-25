@@ -640,12 +640,48 @@ Restore a normal chat composer so Send saves immediately into the thread, while 
 ### Verification
 
 - Targeted tests: PASS
+- Final full `npm test`: PASS
+- Final full `npm run build`: PASS
+- Dev smoke: PASS (startup logs only; no live visual inspection in this session)
+
+### Notes
+
+- Manual continuation now follows the saved chat history instead of behaving like a separate setup form
+- Existing `saveManualExchange()` support remains for compatibility, but the chat UI now prefers assistant-only manual saves after a normal local send
+
+---
+
+## 2026-05-25 — Chat-like manual fallback guidance
+
+### Goal
+
+Make no-provider/manual mode feel like a normal chat environment by showing a friendly ContinuityOS guidance response after a saved user message when no AI provider is available.
+
+### Implementation
+
+- Added a renderer-only manual fallback helper so no-provider and provider-unavailable states map to calm conversational guidance instead of setup/error copy
+- Replaced the red no-provider fallback alert with an in-thread `ContinuityOS` guidance card that appears after the saved user message
+- Kept this guidance renderer-only so canonical chat history is not polluted with fake assistant answers
+- Added quick actions on the guidance card:
+  - `Copy Context Pack`
+  - `Paste AI Response`
+- Auto-opened and highlighted `ManualContextPackPanel` after fallback-worthy sends so the next step feels like part of the conversation
+- Updated fallback microcopy in the header, composer helper, and Context Pack panel to emphasize:
+  - messages are saved locally
+  - no provider setup is required
+  - ChatGPT / Claude / Gemini / other AI tools are the reply path via Context Pack
+- Filtered empty failed/cancelled assistant placeholders from the renderer so provider failures do not leave confusing blank reply bubbles
+- Added regression coverage for fallback-copy classification and preserved the existing no-provider/manual-response integrity tests
+
+### Verification
+
+- Targeted tests: PASS
 - Final full `npm test`: pending end-of-task run
 - Final full `npm run build`: pending end-of-task run
 - Dev smoke: pending end-of-task run
 
 ### Notes
 
-- Manual continuation now follows the saved chat history instead of behaving like a separate setup form
-- Existing `saveManualExchange()` support remains for compatibility, but the chat UI now prefers assistant-only manual saves after a normal local send
+- The new fallback card is intentionally local UI guidance, not a saved AI reply
+- Real visual verification is still needed in a live Electron window
 

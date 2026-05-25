@@ -733,12 +733,35 @@ button.load-older:disabled {
   border-color: #2d6a4f;
 }
 
+.message-local-guidance {
+  border-color: #38557a;
+  background: #132031;
+}
+
 .message header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.75rem;
   color: #8fa3bf;
   margin-bottom: 0.35rem;
+}
+
+.local-guidance-badge {
+  margin-left: auto;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(110, 181, 255, 0.14);
+  color: #b9d9ff;
+  font-size: 0.7rem;
+}
+
+.message-guidance-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
 }
 
 .provider-bar {
@@ -826,6 +849,11 @@ button.load-older:disabled {
   border: 1px solid #2a3548;
   border-radius: 12px;
   background: #141c28;
+}
+
+.manual-context-pack-header.highlighted {
+  border-color: #4a6fa5;
+  box-shadow: 0 0 0 1px rgba(110, 181, 255, 0.15);
 }
 
 .manual-context-pack h3 {

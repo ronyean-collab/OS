@@ -204,6 +204,13 @@ Normal chat composer with manual fallback (2026-05-25):
 - Added assistant-only manual response saves to avoid duplicating an already-saved user message
 - Provider failures now preserve the local user message and fall back calmly to manual continuation
 
+Chat-like manual fallback guidance (2026-05-25):
+- Replaced the red no-provider fallback alert with an in-thread ContinuityOS guidance card
+- Guidance is renderer-only and not saved as a fake assistant answer
+- Guidance card now explains that messages are saved locally and the AI reply path is the Context Pack
+- Added direct fallback actions to copy the Context Pack and jump into pasted-response flow
+- Auto-opened/highlighted the manual reply tools after no-provider or provider-unavailable sends
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -212,6 +219,7 @@ FIXES APPLIED THIS SESSION
 - Added regression coverage for manual-first onboarding defaults and later context-pack continuity
 - Restored a normal chat composer while keeping the local-first send path and compact manual fallback
 - Added assistant-only manual response persistence so pasted replies do not duplicate the saved user turn
+- Added chat-like local fallback guidance so no-provider sends feel conversational instead of failed
 
 ================================================================================
 UNRESOLVED RISKS
@@ -221,6 +229,7 @@ UNRESOLVED RISKS
 - RAM profiling not performed
 - Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
 - Restored chat composer still needs live visual confirmation in the packaged renderer
+- Chat-like local fallback guidance still needs live visual confirmation in the packaged renderer
 - Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
 - Token-aware truncation still not implemented
 
@@ -228,7 +237,7 @@ UNRESOLVED RISKS
 RECOMMENDED NEXT PHASE
 ================================================================================
 1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q
-2. Confirm the normal composer sends locally with no provider and shows the compact manual fallback
+2. Confirm the normal composer sends locally with no provider and shows the chat-like ContinuityOS fallback guidance
 3. Use Universal Context Pack in a real external AI chat and paste the response back
 4. Future small win: token-aware applyContextTruncation (no architecture change)
 
