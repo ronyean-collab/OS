@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
-import type { Thread, UniversalContextPackResult } from "@shared/types";
+import type { Message, Thread, UniversalContextPackResult } from "@shared/types";
 
 type Props = {
   thread: Thread | null;
-  draft: string;
-  onDraftChange: (value: string) => void;
+  latestUserMessage: Message | null;
   disabled: boolean;
   streaming: boolean;
-  defaultOpen?: boolean;
   onBuildPack: (input: {
     userRequest: string;
     targetPlatform: string;
   }) => Promise<UniversalContextPackResult>;
-  onSaveExchange: (input: {
-    userRequest: string;
+  onSaveAssistantResponse: (input: {
     assistantResponse: string;
     targetPlatform: string;
+    sourceUserMessageId?: string;
   }) => Promise<void>;
 };
 
@@ -30,13 +28,11 @@ const TARGET_OPTIONS = [
 
 export function ManualContextPackPanel({
   thread,
-  draft,
-  onDraftChange,
+  latestUserMessage,
   disabled,
   streaming,
-  defaultOpen,
   onBuildPack,
-  onSaveExchange,
+  onSaveAssistantResponse,
 }: Props) {
   const [targetPlatform, setTargetPlatform] = useState<string>("Any AI");
   const [pack, setPack] = useState<UniversalContextPackResult | null>(null);
@@ -44,30 +40,35 @@ export function ManualContextPackPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(Boolean(defaultOpen));
+  const [expanded, setExpanded] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     setPack(null);
     setAssistantResponse("");
     setError(null);
     setStatus(null);
-  }, [thread?.id, draft, targetPlatform]);
+    setExpanded(false);
+    setShowPreview(false);
+  }, [thread?.id, latestUserMessage?.id, targetPlatform]);
 
-  useEffect(() => {
-    if (defaultOpen) {
-      setExpanded(true);
-    }
-  }, [defaultOpen]);
+  const activeRequest = latestUserMessage?.content.trim() ?? "";
+
+  const buildPack = async (): Promise<UniversalContextPackResult> => {
+    const built = await onBuildPack({
+      userRequest: activeRequest,
+      targetPlatform,
+    });
+    setPack(built);
+    return built;
+  };
 
   const handleBuild = async () => {
     setBusy(true);
     setError(null);
     setStatus(null);
     try {
-      const built = await onBuildPack({
-        userRequest: draft,
-        targetPlatform,
-      });
+      const built = await buildPack();
       setPack(built);
       setStatus(`Preview ready for ${built.targetPlatform}.`);
     } catch (err) {
@@ -78,12 +79,16 @@ export function ManualContextPackPanel({
   };
 
   const handleCopy = async () => {
-    if (!pack?.text) return;
     try {
-      await navigator.clipboard.writeText(pack.text);
-      setStatus(`Copied Context Pack for ${pack.targetPlatform}.`);
+      setBusy(true);
+      setError(null);
+      const built = pack ?? (await buildPack());
+      await navigator.clipboard.writeText(built.text);
+      setStatus(`Copied Context Pack for ${built.targetPlatform}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Clipboard copy failed.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -92,12 +97,11 @@ export function ManualContextPackPanel({
     setError(null);
     setStatus(null);
     try {
-      await onSaveExchange({
-        userRequest: draft,
+      await onSaveAssistantResponse({
         assistantResponse,
         targetPlatform,
+        sourceUserMessageId: latestUserMessage?.id,
       });
-      onDraftChange("");
       setAssistantResponse("");
       setPack(null);
       setStatus(`Saved pasted ${targetPlatform} response into this thread.`);
@@ -108,66 +112,83 @@ export function ManualContextPackPanel({
     }
   };
 
+  const handleTogglePreview = async () => {
+    const next = !showPreview;
+    if (next) {
+      setExpanded(true);
+    }
+    setShowPreview(next);
+    if (next && !pack) {
+      await handleBuild();
+    }
+  };
+
+  if (!thread || !latestUserMessage) {
+    return null;
+  }
+
   return (
     <section className="manual-context-pack" aria-label="Universal Context Pack">
-      <button
-        type="button"
-        className="manual-context-pack-toggle"
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <span>Continue in Any AI</span>
-        <span className="muted small">{expanded ? "Hide" : "Show"}</span>
-      </button>
+      <div className="manual-context-pack-header compact">
+        <div>
+          <h3>Continue in Any AI</h3>
+          <p className="muted small">
+            Message saved. Copy a Context Pack into any AI, then paste the response back.
+          </p>
+          <p className="muted small">
+            ContinuityOS does not send this automatically. You choose what to copy.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="secondary small-btn"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "Hide" : "Open"}
+        </button>
+      </div>
+
+      <p className="muted small manual-context-pack-request">
+        Using latest saved message: <span className="mono">{activeRequest}</span>
+      </p>
+
+      <label className="manual-context-pack-field">
+        <span>Target platform</span>
+        <select
+          value={targetPlatform}
+          onChange={(e) => setTargetPlatform(e.target.value)}
+          disabled={disabled || streaming}
+        >
+          {TARGET_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="manual-context-pack-actions">
+        <button
+          type="button"
+          className="secondary"
+          disabled={disabled || streaming || busy || !activeRequest}
+          onClick={() => void handleCopy()}
+        >
+          {busy ? "Preparing…" : "Copy Context Pack"}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          disabled={disabled || streaming || busy || !activeRequest}
+          onClick={() => void handleTogglePreview()}
+        >
+          {showPreview ? "Hide Context Pack Preview" : "Show Context Pack Preview"}
+        </button>
+      </div>
 
       {expanded && (
         <>
-          <div className="manual-context-pack-header">
-            <div>
-              <p className="muted small">
-                Use this when you want to continue in ChatGPT, Claude, Gemini, or
-                another AI without an API key.
-              </p>
-              <p className="muted small">
-                This does not send data automatically. You choose what to copy.
-              </p>
-            </div>
-          </div>
-
-          <label className="manual-context-pack-field">
-            <span>Target platform</span>
-            <select
-              value={targetPlatform}
-              onChange={(e) => setTargetPlatform(e.target.value)}
-              disabled={disabled || streaming || !thread}
-            >
-              {TARGET_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="manual-context-pack-actions">
-            <button
-              type="button"
-              className="secondary"
-              disabled={!thread || disabled || streaming || !draft.trim() || busy}
-              onClick={() => void handleBuild()}
-            >
-              {busy ? "Building…" : "Preview Context Pack"}
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={!pack?.text || busy}
-              onClick={() => void handleCopy()}
-            >
-              Copy Context Pack
-            </button>
-          </div>
-
-          {pack && (
+          {showPreview && pack && (
             <>
               <label className="manual-context-pack-field">
                 <span>Context Pack preview</span>
@@ -191,30 +212,23 @@ export function ManualContextPackPanel({
               value={assistantResponse}
               onChange={(e) => setAssistantResponse(e.target.value)}
               rows={6}
-              disabled={!thread || disabled || busy}
+              disabled={disabled || busy}
               placeholder="Paste the response from ChatGPT, Claude, Gemini, OpenRouter, Ollama, or another AI."
             />
           </label>
 
           <button
             type="button"
-            disabled={
-              !thread ||
-              disabled ||
-              busy ||
-              !pack?.text ||
-              !draft.trim() ||
-              !assistantResponse.trim()
-            }
+            disabled={disabled || busy || !assistantResponse.trim()}
             onClick={() => void handleSave()}
           >
-            {busy ? "Saving…" : "Save Exchange"}
+            {busy ? "Saving…" : "Save Response"}
           </button>
-
-          {status && <p className="muted small">{status}</p>}
-          {error && <p className="stream-error">{error}</p>}
         </>
       )}
+
+      {status && <p className="muted small">{status}</p>}
+      {error && <p className="stream-error">{error}</p>}
     </section>
   );
 }

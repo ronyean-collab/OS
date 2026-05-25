@@ -611,3 +611,41 @@ Remove provider setup as a blocker, make Manual Mode the primary default path, s
 - Existing backend functionality for provider setup, continuity summary, timeline, snapshots, export/import, and diagnostics was preserved
 - This change is focused on reducing visual overwhelm and removing provider-first UX pressure
 
+---
+
+## 2026-05-25 — Restore normal chat composer with manual fallback
+
+### Goal
+
+Restore a normal chat composer so Send saves immediately into the thread, while `Continue in Any AI` becomes the fallback path when no provider is configured or a provider fails.
+
+### Implementation
+
+- Removed the renderer-side provider gate that previously blocked the composer before the existing local-first save path could run
+- Kept `startAssistantStream()` as the single send entry so user messages are persisted locally before any provider work is attempted
+- Normalized the composer to a standard chat UX:
+  - placeholder `Message your workspace…`
+  - `Send` button
+  - `Enter` submits
+  - `Shift+Enter` adds a newline
+- Reworked `ManualContextPackPanel` into a compact `Continue in Any AI` card driven by the latest saved user message instead of owning the main composer draft
+- Added `saveManualAssistantResponse()` so pasted manual replies append only the assistant message and do not duplicate an already-saved user message
+- Added IPC/preload plumbing for assistant-only manual saves
+- Reworded fallback messaging so no-provider and provider-error states stay calm and non-blocking
+- Added regression coverage for:
+  - local save with no provider
+  - assistant-only manual save without duplicate user messages
+  - provider failure preserving the user message
+
+### Verification
+
+- Targeted tests: PASS
+- Final full `npm test`: pending end-of-task run
+- Final full `npm run build`: pending end-of-task run
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- Manual continuation now follows the saved chat history instead of behaving like a separate setup form
+- Existing `saveManualExchange()` support remains for compatibility, but the chat UI now prefers assistant-only manual saves after a normal local send
+

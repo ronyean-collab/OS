@@ -3,6 +3,7 @@ import { openTestDatabase } from "../electron/main/database/test-db";
 import {
   buildUniversalContextPack,
   DEFAULT_CONTEXT_PACK_MESSAGE_LIMIT,
+  saveManualAssistantResponse,
   saveManualExchange,
 } from "../electron/main/services/context-pack-service";
 import {
@@ -150,6 +151,33 @@ describe("manual context pack", () => {
     expect(listMessages(db, thread.id)).toHaveLength(before);
   });
 
+  it("saves only the assistant response after a user message already exists", () => {
+    const db = session();
+    const ws = createWorkspace(db, "Manual follow-up");
+    const thread = createThread(db, ws.id, "Saved locally first");
+    const userMessage = insertMessage(db, {
+      threadId: thread.id,
+      role: "user",
+      content: "Draft the next migration command.",
+    });
+
+    const saved = saveManualAssistantResponse(db, {
+      workspaceId: ws.id,
+      threadId: thread.id,
+      assistantResponse: "Start with a backup, then run the migration on a copy.",
+      targetPlatform: "ChatGPT",
+      sourceUserMessageId: userMessage.id,
+    });
+
+    const messages = listMessages(db, thread.id);
+    expect(messages).toHaveLength(2);
+    expect(messages.filter((message) => message.role === "user")).toHaveLength(1);
+    expect(messages[0].content).toBe("Draft the next migration command.");
+    expect(messages[1].content).toBe("Start with a backup, then run the migration on a copy.");
+    expect(saved.assistantMessage.rawProviderPayload).toContain(userMessage.id);
+    expect(saved.sourceUserMessageId).toBe(userMessage.id);
+  });
+
   it("exports and imports manual exchanges as normal messages", () => {
     const db = session();
     const ws = createWorkspace(db, "Manual export");
@@ -203,5 +231,36 @@ describe("manual context pack", () => {
     expect(result.text).toContain("Summarize the next safe UX step.");
     expect(result.text).toContain("Hide advanced tools behind a project tools drawer.");
     expect(result.text).toContain("Continue from the saved result.");
+  });
+
+  it("includes an assistant-only manual save after a locally saved user message", () => {
+    const db = session();
+    const ws = createWorkspace(db, "Manual continuation");
+    const thread = createThread(db, ws.id, "Normal chat first");
+    const userMessage = insertMessage(db, {
+      threadId: thread.id,
+      role: "user",
+      content: "What should I do after the local send succeeds?",
+    });
+
+    saveManualAssistantResponse(db, {
+      workspaceId: ws.id,
+      threadId: thread.id,
+      assistantResponse: "Copy the context pack, get a reply in any AI, and save it back here.",
+      targetPlatform: "Claude",
+      sourceUserMessageId: userMessage.id,
+    });
+
+    const result = buildUniversalContextPack(db, {
+      workspaceId: ws.id,
+      threadId: thread.id,
+      userRequest: "Continue this local-first workflow.",
+      targetPlatform: "Any AI",
+    });
+
+    expect(result.text).toContain("What should I do after the local send succeeds?");
+    expect(result.text).toContain(
+      "Copy the context pack, get a reply in any AI, and save it back here.",
+    );
   });
 });

@@ -9,6 +9,7 @@ export const IPC = {
   WORKSPACE_UPDATE_CONTINUITY_SUMMARY: "workspace:update-continuity-summary",
   CONTEXT_PACK_BUILD: "context-pack:build",
   MANUAL_EXCHANGE_SAVE: "manual-exchange:save",
+  MANUAL_ASSISTANT_RESPONSE_SAVE: "manual-assistant-response:save",
   THREAD_LIST: "thread:list",
   THREAD_CREATE: "thread:create",
   MESSAGE_LIST: "message:list",

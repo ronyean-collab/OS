@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Message, Thread, UniversalContextPackResult } from "@shared/types";
 import { ManualContextPackPanel } from "./ManualContextPackPanel";
 
@@ -15,16 +15,15 @@ type Props = {
   modelBadge: string | null;
   streaming: boolean;
   streamError: string | null;
-  manualModeHint: string | null;
   onSend: (content: string) => Promise<void>;
   onBuildContextPack: (input: {
     userRequest: string;
     targetPlatform: string;
   }) => Promise<UniversalContextPackResult>;
-  onSaveManualExchange: (input: {
-    userRequest: string;
+  onSaveManualAssistantResponse: (input: {
     assistantResponse: string;
     targetPlatform: string;
+    sourceUserMessageId?: string;
   }) => Promise<void>;
   onCancelStream: () => void;
   disabled: boolean;
@@ -43,10 +42,9 @@ export function ChatPanel({
   modelBadge,
   streaming,
   streamError,
-  manualModeHint,
   onSend,
   onBuildContextPack,
-  onSaveManualExchange,
+  onSaveManualAssistantResponse,
   onCancelStream,
   disabled,
 }: Props) {
@@ -98,18 +96,21 @@ export function ChatPanel({
     await onSend(text);
   };
 
+  const latestUserMessage = [...messages].reverse().find((message) => message.role === "user") ?? null;
+
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void submit();
+    }
+  };
+
   return (
     <section className="chat-panel">
       {providerLabel && (
         <div className="provider-bar">
           <span>{providerLabel}</span>
           {streaming && <span className="streaming-badge">Streaming…</span>}
-        </div>
-      )}
-
-      {!providerReady && manualModeHint && (
-        <div className="manual-mode-banner" role="status">
-          {manualModeHint}
         </div>
       )}
 
@@ -157,7 +158,7 @@ export function ChatPanel({
       </div>
 
       <form
-        className={`composer${providerReady || streaming ? "" : " manual-first"}`}
+        className="composer"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -171,13 +172,8 @@ export function ChatPanel({
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={
-            thread
-              ? providerReady
-                ? "Message your workspace…"
-                : "Write the next request you want to continue in any AI…"
-              : "Select a thread first"
-          }
+          onKeyDown={handleComposerKeyDown}
+          placeholder={thread ? "Message your workspace…" : "Select a thread first"}
           disabled={!thread || disabled || streaming}
           rows={3}
         />
@@ -185,32 +181,30 @@ export function ChatPanel({
           <button type="button" className="cancel" onClick={onCancelStream}>
             Cancel
           </button>
-        ) : providerReady ? (
+        ) : (
           <button
             type="submit"
             disabled={!thread || disabled || !draft.trim()}
           >
-            Send with API
+            Send
           </button>
-        ) : (
-          <p className="muted small composer-manual-hint">
-            No provider required. Use the same text below to preview a Context Pack,
-            copy it into any AI, then paste the reply back here.
-          </p>
         )}
+        <p className="muted small composer-manual-hint">
+          No provider required. Send saves your message locally; use Continue in Any AI for a response.
+        </p>
       </form>
-      <div className="manual-context-pack-wrap">
-        <ManualContextPackPanel
-          thread={thread}
-          draft={draft}
-          onDraftChange={setDraft}
-          disabled={disabled}
-          streaming={streaming}
-          defaultOpen={!providerReady}
-          onBuildPack={onBuildContextPack}
-          onSaveExchange={onSaveManualExchange}
-        />
-      </div>
+      {thread && latestUserMessage && (
+        <div className="manual-context-pack-wrap">
+          <ManualContextPackPanel
+            thread={thread}
+            latestUserMessage={latestUserMessage}
+            disabled={disabled}
+            streaming={streaming}
+            onBuildPack={onBuildContextPack}
+            onSaveAssistantResponse={onSaveManualAssistantResponse}
+          />
+        </div>
+      )}
     </section>
   );
 }

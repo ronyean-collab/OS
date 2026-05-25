@@ -48,6 +48,7 @@ import {
 import { cancelStream, startAssistantStream } from "../services/stream-runtime";
 import {
   buildUniversalContextPack,
+  saveManualAssistantResponse,
   saveManualExchange,
 } from "../services/context-pack-service";
 import {
@@ -56,6 +57,7 @@ import {
   executeQuarantineOrphanedMessages,
 } from "../services/orphan-repair";
 import {
+  assertManualAssistantResponseSaveInput,
   assertContextPackBuildInput,
   assertManualExchangeSaveInput,
   assertNonEmptyString,
@@ -316,6 +318,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.MANUAL_EXCHANGE_SAVE, (_e, input: unknown) => {
     const db = requireDb();
     return saveManualExchange(db, assertManualExchangeSaveInput(input));
+  });
+
+  ipcMain.handle(IPC.MANUAL_ASSISTANT_RESPONSE_SAVE, (_e, input: unknown) => {
+    const db = requireDb();
+    return saveManualAssistantResponse(db, assertManualAssistantResponseSaveInput(input));
   });
 
   ipcMain.handle(IPC.WORKSPACE_EXPORT, (_e, workspaceId: string) => {

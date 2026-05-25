@@ -231,19 +231,23 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
-## Q. Manual-first UX / provider-optional flow
+## Q. Normal chat composer / manual fallback flow
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
 | Q1 | Fresh app opens to threads + current chat without provider onboarding | ☐ | |
-| Q2 | Provider setup does not block startup or first message draft entry | ☐ | |
-| Q3 | Manual Mode / Continue in Any AI is visible from the main chat area | ☐ | |
-| Q4 | User can prepare and copy a Context Pack without any API key | ☐ | |
-| Q5 | User can paste an external AI response and save the exchange without any API key | ☐ | |
-| Q6 | Provider settings remain accessible but only inside Project tools | ☐ | |
-| Q7 | Export/import/diagnostics/snapshots are hidden from the main screen but still accessible | ☐ | |
-| Q8 | Thread list remains visible by default with rename/move/archive/delete reachable from the thread menu | ☐ | |
-| Q9 | No-provider state feels calm and non-blocking | ☐ | |
+| Q2 | Provider setup does not block startup or sending the first message | ☐ | |
+| Q3 | Bottom composer looks like a normal chat box with placeholder `Message your workspace…` | ☐ | |
+| Q4 | Pressing Enter sends; Shift+Enter inserts a newline | ☐ | |
+| Q5 | No-provider send saves the user message locally immediately and keeps the thread centered | ☐ | |
+| Q6 | Compact `Continue in Any AI` card appears after local-only send without overwhelming the chat UI | ☐ | |
+| Q7 | Copy Context Pack works without preview-first friction and without any API key | ☐ | |
+| Q8 | Pasting an external AI response saves only the assistant response without duplicating the saved user message | ☐ | |
+| Q9 | Provider failure falls back calmly to `Continue in Any AI` without losing the user message | ☐ | |
+| Q10 | Provider settings remain accessible but only inside Project tools | ☐ | |
+| Q11 | Export/import/diagnostics/snapshots are hidden from the main screen but still accessible | ☐ | |
+| Q12 | Thread list remains visible by default with rename/move/archive/delete reachable from the thread menu | ☐ | |
+| Q13 | No-provider state feels calm and non-blocking | ☐ | |
 
 ---
 
@@ -258,6 +262,7 @@ npx vitest run tests/manual-context-pack.test.ts
 npx vitest run tests/onboarding-flow.test.ts
 npx vitest run tests/provider-setup.test.ts
 npx vitest run tests/provider-multi.test.ts
+npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/thread-sidebar-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts

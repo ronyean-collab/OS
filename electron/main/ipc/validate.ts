@@ -74,3 +74,30 @@ export function assertManualExchangeSaveInput(value: unknown): {
     targetPlatform: typeof o.targetPlatform === "string" ? o.targetPlatform.trim() : undefined,
   };
 }
+
+export function assertManualAssistantResponseSaveInput(value: unknown): {
+  workspaceId: string;
+  threadId: string;
+  assistantResponse: string;
+  targetPlatform?: string;
+  sourceUserMessageId?: string;
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid manual assistant response input.");
+  }
+  const o = value as Record<string, unknown>;
+  const sourceUserMessageId =
+    typeof o.sourceUserMessageId === "string" && o.sourceUserMessageId.trim()
+      ? o.sourceUserMessageId.trim()
+      : undefined;
+  if (sourceUserMessageId && !UUID_LIKE.test(sourceUserMessageId)) {
+    throw new Error("Invalid sourceUserMessageId format.");
+  }
+  return {
+    workspaceId: assertNonEmptyString(o.workspaceId, "workspaceId"),
+    threadId: assertThreadId(o.threadId),
+    assistantResponse: assertNonEmptyString(o.assistantResponse, "assistantResponse"),
+    targetPlatform: typeof o.targetPlatform === "string" ? o.targetPlatform.trim() : undefined,
+    sourceUserMessageId,
+  };
+}

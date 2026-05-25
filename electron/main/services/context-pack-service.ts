@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import type {
+  ManualAssistantResponseSaveResult,
   ManualExchangeSaveResult,
   Message,
   UniversalContextPackResult,
@@ -31,6 +32,14 @@ type SaveManualExchangeInput = {
   userRequest: string;
   assistantResponse: string;
   targetPlatform?: string | null;
+};
+
+type SaveManualAssistantResponseInput = {
+  workspaceId: string;
+  threadId: string;
+  assistantResponse: string;
+  targetPlatform?: string | null;
+  sourceUserMessageId?: string | null;
 };
 
 function normalizeTargetPlatform(raw: string | null | undefined): string {
@@ -213,6 +222,65 @@ export function saveManualExchange(
       userMessage,
       assistantMessage,
       targetPlatform,
+    };
+  });
+}
+
+export function saveManualAssistantResponse(
+  db: Database.Database,
+  input: SaveManualAssistantResponseInput,
+): ManualAssistantResponseSaveResult {
+  const workspaceId = input.workspaceId.trim();
+  const threadId = input.threadId.trim();
+  const assistantResponse = input.assistantResponse.trim();
+  const targetPlatform = normalizeTargetPlatform(input.targetPlatform);
+  const sourceUserMessageId = input.sourceUserMessageId?.trim() || null;
+
+  if (!workspaceId) throw new Error("workspaceId is required.");
+  if (!threadId) throw new Error("threadId is required.");
+  if (!assistantResponse) throw new Error("AI response cannot be empty.");
+
+  return runInTransaction(db, () => {
+    assertMessageThreadContext(db, threadId, workspaceId);
+
+    if (sourceUserMessageId) {
+      const row = db
+        .prepare("SELECT id, thread_id, role FROM messages WHERE id = ?")
+        .get(sourceUserMessageId) as
+        | { id: string; thread_id: string; role: Message["role"] }
+        | undefined;
+      if (!row || row.thread_id !== threadId || row.role !== "user") {
+        throw new Error("sourceUserMessageId must point to a user message in this thread.");
+      }
+    }
+
+    const assistantMessage = insertMessage(db, {
+      threadId,
+      role: "assistant",
+      content: assistantResponse,
+      provider: "manual",
+      model: targetPlatform,
+      rawProviderPayload: {
+        source: "manual_context_pack",
+        targetPlatform,
+        kind: "response",
+        sourceUserMessageId,
+      },
+    });
+
+    appendTimelineEvent(db, {
+      workspaceId,
+      threadId,
+      type: "manual_ai_response_saved",
+      title: "Manual AI response saved",
+      description: `Saved a pasted response from ${targetPlatform}.`,
+      source: "user",
+    });
+
+    return {
+      assistantMessage,
+      targetPlatform,
+      sourceUserMessageId,
     };
   });
 }

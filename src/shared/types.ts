@@ -476,6 +476,12 @@ export type ManualExchangeSaveResult = {
   targetPlatform: string;
 };
 
+export type ManualAssistantResponseSaveResult = {
+  assistantMessage: Message;
+  targetPlatform: string;
+  sourceUserMessageId: string | null;
+};
+
 export type SendMessageResult = {
   message: Message;
   assistantPlaceholder: Message | null;

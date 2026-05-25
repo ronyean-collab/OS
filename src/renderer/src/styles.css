@@ -794,17 +794,15 @@ button.load-older:disabled {
 .composer {
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: end;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid #243041;
 }
 
-.composer.manual-first {
-  grid-template-columns: 1fr;
-}
-
 .composer-manual-hint {
   margin: 0;
+  grid-column: 1 / -1;
 }
 
 .manual-context-pack-wrap {
@@ -819,17 +817,24 @@ button.load-older:disabled {
   padding-top: 0.9rem;
 }
 
-.manual-context-pack-toggle {
+.manual-context-pack-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  background: #1a2433;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #2a3548;
+  border-radius: 12px;
+  background: #141c28;
 }
 
 .manual-context-pack h3 {
   margin: 0 0 0.25rem;
   font-size: 0.95rem;
+}
+
+.manual-context-pack-request {
+  margin: -0.1rem 0 0;
 }
 
 .manual-context-pack p {

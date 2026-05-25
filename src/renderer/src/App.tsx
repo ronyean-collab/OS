@@ -109,6 +109,18 @@ export function App() {
     return config.hasApiKey;
   };
 
+  const isManualOnlyError = (message: string) =>
+    /choose an ai provider|provider settings|not fully configured|setup|base url/i.test(message);
+
+  const manualFallbackMessage = (message?: string) => {
+    if (!message) return null;
+    if (/thread|workspace/i.test(message)) return message;
+    if (isManualOnlyError(message) || !isProviderConfigured(providerConfig)) {
+      return "Message saved. Copy a Context Pack into any AI, then paste the response back.";
+    }
+    return "Provider unavailable. Use Continue in Any AI to get a response.";
+  };
+
   const refreshAppState = useCallback(async () => {
     const state = await continuity.getAppState();
     setAppState(state);
@@ -305,7 +317,7 @@ export function App() {
         activeStreamIdRef.current = null;
         assistantMessageIdRef.current = null;
         if (!event.cancelled) {
-          setStreamError(event.error);
+          setStreamError(manualFallbackMessage(event.error) ?? event.error);
         } else {
           setStreamError(null);
         }
@@ -422,12 +434,6 @@ export function App() {
 
   const handleSendMessage = async (content: string) => {
     if (!activeThread || streaming) return;
-    if (!providerConfig || !isProviderConfigured(providerConfig) || !providerConfig.runtimeReady) {
-      setStreamError(
-        "Manual Mode is ready. Copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.",
-      );
-      return;
-    }
     setStreamError(null);
 
     const result = await continuity.startMessageStream({
@@ -435,15 +441,21 @@ export function App() {
       content,
     });
 
-    const next: Message[] = [result.userMessage];
+    const next: Message[] = [];
+    if (result.userMessage) {
+      next.push(result.userMessage);
+    }
     if (result.assistantMessage) {
       next.push(result.assistantMessage);
       assistantMessageIdRef.current = result.assistantMessage.id;
     }
-    setMessages((prev) => [...prev, ...next.filter((m) => !prev.some((p) => p.id === m.id))]);
+    if (next.length > 0) {
+      setMessages((prev) => [...prev, ...next.filter((m) => !prev.some((p) => p.id === m.id))]);
+    }
 
     if (result.error) {
-      setStreamError(result.error);
+      setStreamError(manualFallbackMessage(result.error) ?? result.error);
+      if (workspace) await refreshOpsPanels(workspace.id);
       return;
     }
 
@@ -452,7 +464,7 @@ export function App() {
       setStreaming(true);
     } else if (!result.assistantMessage) {
       setStreamError(
-        "Manual Mode is ready. Copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.",
+        "Message saved. Copy a Context Pack into any AI, then paste the response back.",
       );
       if (workspace) await refreshOpsPanels(workspace.id);
     }
@@ -475,20 +487,20 @@ export function App() {
     return result;
   };
 
-  const handleSaveManualExchange = async (input: {
-    userRequest: string;
+  const handleSaveManualAssistantResponse = async (input: {
     assistantResponse: string;
     targetPlatform: string;
+    sourceUserMessageId?: string;
   }) => {
     if (!workspace || !activeThread) {
-      throw new Error("Open a thread before saving a manual exchange.");
+      throw new Error("Open a thread before saving a manual AI response.");
     }
-    await continuity.saveManualExchange({
+    await continuity.saveManualAssistantResponse({
       workspaceId: workspace.id,
       threadId: activeThread.id,
-      userRequest: input.userRequest,
       assistantResponse: input.assistantResponse,
       targetPlatform: input.targetPlatform,
+      sourceUserMessageId: input.sourceUserMessageId,
     });
     await reloadThreads(workspace.id);
     await loadThreadMessages(activeThread.id);
@@ -729,8 +741,6 @@ export function App() {
     providerConfig != null &&
     isProviderConfigured(providerConfig) &&
     providerConfig.runtimeReady;
-  const manualModeHint =
-    "Manual Mode is ready. You can copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.";
   const providerBadge = providerConfig
     ? `${providerConfig.displayName} · ${providerConfig.model}`
     : null;
@@ -871,10 +881,9 @@ export function App() {
           modelBadge={modelBadge}
           streaming={streaming}
           streamError={streamError}
-          manualModeHint={manualModeHint}
           onSend={handleSendMessage}
           onBuildContextPack={handleBuildContextPack}
-          onSaveManualExchange={handleSaveManualExchange}
+          onSaveManualAssistantResponse={handleSaveManualAssistantResponse}
           onCancelStream={handleCancelStream}
           disabled={appState?.recoveryMode ?? false}
         />

@@ -167,6 +167,8 @@ describe("stream runtime", () => {
     expect(result.userMessage?.content).toBe("Hello");
     expect(result.assistantMessage).toBeNull();
     expect(result.error).toMatch(/Choose an AI provider/i);
+    expect(listMessages(db, thread.id)).toHaveLength(1);
+    expect(listMessages(db, thread.id)[0].content).toBe("Hello");
   });
 
   it("records failure timeline event on stream error", async () => {
@@ -188,5 +190,9 @@ describe("stream runtime", () => {
       )
       .get() as { c: number };
     expect(failed.c).toBeGreaterThan(0);
+
+    const messages = listMessages(db, thread.id);
+    expect(messages.filter((message) => message.role === "user")).toHaveLength(1);
+    expect(messages.some((message) => message.content === "Fail please")).toBe(true);
   });
 });

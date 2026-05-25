@@ -6,6 +6,7 @@ import type {
   AutosaveStatus,
   DiagnosticsReport,
   Message,
+  ManualAssistantResponseSaveResult,
   ManualExchangeSaveResult,
   MessagePageResult,
   ProviderConfig,
@@ -134,6 +135,15 @@ const api = {
     targetPlatform?: string;
   }): Promise<ManualExchangeSaveResult> =>
     ipcRenderer.invoke(IPC.MANUAL_EXCHANGE_SAVE, input),
+
+  saveManualAssistantResponse: (input: {
+    workspaceId: string;
+    threadId: string;
+    assistantResponse: string;
+    targetPlatform?: string;
+    sourceUserMessageId?: string;
+  }): Promise<ManualAssistantResponseSaveResult> =>
+    ipcRenderer.invoke(IPC.MANUAL_ASSISTANT_RESPONSE_SAVE, input),
 
   exportWorkspace: (workspaceId: string): Promise<WorkspaceExportResult> =>
     ipcRenderer.invoke(IPC.WORKSPACE_EXPORT, workspaceId),
