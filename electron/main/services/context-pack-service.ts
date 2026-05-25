@@ -8,6 +8,10 @@ import type {
 import { runInTransaction } from "../database/transactions";
 import { appendTimelineEvent } from "./continuity-service";
 import {
+  buildImportedStateContextPackSections,
+  getLatestAppliedContinuityImport,
+} from "./continuity-import-file";
+import {
   assertMessageThreadContext,
   insertMessage,
   listMessagesPage,
@@ -85,6 +89,10 @@ function formatRecentConversation(messages: Message[]): string {
     .join("\n\n");
 }
 
+function normalizeForComparison(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export function buildUniversalContextPack(
   db: Database.Database,
   input: BuildUniversalContextPackInput,
@@ -111,6 +119,15 @@ export function buildUniversalContextPack(
     ? truncateForPack(workspace.continuitySummary, MAX_CONTEXT_PACK_SUMMARY_CHARS)
     : "No continuity summary saved yet.";
   const requestBlock = truncateForPack(userRequest, MAX_CONTEXT_PACK_REQUEST_CHARS);
+  const importedState = getLatestAppliedContinuityImport(db, workspaceId);
+  const importedSections = buildImportedStateContextPackSections(importedState);
+  const latestSavedUserMessage = [...recentPage.messages]
+    .reverse()
+    .find((message) => message.role === "user");
+  const duplicateCurrentRequest =
+    latestSavedUserMessage != null &&
+    normalizeForComparison(latestSavedUserMessage.content) ===
+      normalizeForComparison(requestBlock);
   const olderMessagesOmitted = recentPage.totalCount > recentPage.messages.length;
   const olderMessageNote = olderMessagesOmitted
     ? `[Older saved conversation omitted for context size. Showing ${recentPage.messages.length} of ${recentPage.totalCount} messages.]`
@@ -130,13 +147,14 @@ export function buildUniversalContextPack(
     "## Continuity Summary",
     summary,
     "",
+    ...(importedSections.length > 0 ? [...importedSections, ""] : []),
     "## Recent Conversation Context",
     olderMessageNote,
     "",
     formatRecentConversation(recentPage.messages),
     "",
     "## Current User Request",
-    requestBlock,
+    duplicateCurrentRequest ? "Same as the latest saved user message above." : requestBlock,
     "",
     "## Instructions For This AI",
     "You are continuing an existing project conversation from ContinuityOS.",

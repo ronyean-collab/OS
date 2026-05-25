@@ -33,6 +33,7 @@ const ALLOWED_TYPES = new Set<string>([
   "workspace_import_started",
   "workspace_import_completed",
   "workspace_import_failed",
+  "continuity_import_file_applied",
   "continuity_summary_updated",
   "manual_context_pack_created",
   "manual_ai_response_saved",

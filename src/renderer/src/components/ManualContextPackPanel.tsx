@@ -166,6 +166,10 @@ export function ManualContextPackPanel({
           <p className="muted small">
             ContinuityOS does not send this automatically. You choose what to copy.
           </p>
+          <p className="muted small">
+            Need to bring state back from an existing AI chat? Open Project tools and use
+            Create import file from current AI chat.
+          </p>
         </div>
         <button
           type="button"

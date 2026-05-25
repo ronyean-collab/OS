@@ -18,6 +18,10 @@ import {
   appendTimelineEvent,
 } from "./continuity-service";
 import {
+  buildImportedStateContextBlock,
+  getLatestAppliedContinuityImport,
+} from "./continuity-import-file";
+import {
   applyContextTruncation,
   assembleProviderContext,
   DEFAULT_CONTEXT_MESSAGE_LIMIT,
@@ -173,17 +177,25 @@ export async function startAssistantStream(
 
   const def = getProviderDefinition(provider);
   const ref = config.secure_key_ref != null ? String(config.secure_key_ref) : "";
-  const apiKey = def.requiresApiKey && ref ? secureStorage.getKey(ref) : null;
+  const connectionValue =
+    provider === "ollama"
+      ? getProviderBaseUrl(db, workspaceId, provider) ?? def.defaultBaseUrl ?? ""
+      : def.requiresApiKey && ref
+        ? secureStorage.getKey(ref)
+        : null;
   const adapter = getProviderAdapter(provider);
 
-  if (!adapter || (def.requiresApiKey && !adapter.isConfigured(apiKey))) {
+  if (!adapter || !adapter.isConfigured(connectionValue)) {
     return {
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error: def.requiresApiKey
-        ? `${def.displayName} is not fully configured. Add an API key in Provider settings.`
-        : providerRuntimeMessage(provider),
+      error:
+        provider === "ollama"
+          ? "Set the Ollama base URL in Local AI settings and confirm Ollama is running."
+          : def.requiresApiKey
+            ? `${def.displayName} is not fully configured. Add an API key in Provider settings.`
+            : providerRuntimeMessage(provider),
     };
   }
 
@@ -204,9 +216,11 @@ export async function startAssistantStream(
     limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,
   }).messages;
   const ws = getWorkspaceById(db, workspaceId);
+  const importedState = getLatestAppliedContinuityImport(db, workspaceId);
   const { messages: contextMessages, estimatedTokens } = assembleProviderContext({
     workspaceName: ws?.name ?? "Workspace",
     continuitySummary: ws?.continuitySummary ?? null,
+    importedContextBlock: buildImportedStateContextBlock(importedState),
     messages: history,
   });
   const truncated = applyContextTruncation(contextMessages, 128_000);
@@ -251,7 +265,7 @@ export async function startAssistantStream(
     sender,
     streamId,
     adapter,
-    apiKey: apiKey!,
+    connectionValue: String(connectionValue ?? ""),
     model,
     provider,
     contextMessages: truncated,
@@ -266,18 +280,28 @@ async function runStream(args: {
   sender: WebContents;
   streamId: string;
   adapter: ProviderAdapter;
-  apiKey: string;
+  connectionValue: string;
   model: string;
   provider: string;
   contextMessages: ReturnType<typeof assembleProviderContext>["messages"];
   session: ActiveStream;
 }): Promise<void> {
-  const { db, sender, streamId, adapter, apiKey, model, provider, contextMessages, session } =
+  const {
+    db,
+    sender,
+    streamId,
+    adapter,
+    connectionValue,
+    model,
+    provider,
+    contextMessages,
+    session,
+  } =
     args;
 
   await adapter.streamMessage(
     { model, messages: contextMessages },
-    apiKey,
+    connectionValue,
     {
       onChunk: (delta, accumulated) => {
         updateMessageContent(db, session.assistantMessageId, accumulated);

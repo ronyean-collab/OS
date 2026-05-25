@@ -32,6 +32,7 @@ export type TimelineEventType =
   | "workspace_import_started"
   | "workspace_import_completed"
   | "workspace_import_failed"
+  | "continuity_import_file_applied"
   | "continuity_summary_updated"
   | "manual_context_pack_created"
   | "manual_ai_response_saved";
@@ -411,6 +412,52 @@ export type ImportExecutionResult = {
   message: string;
   workspaceId?: string;
   workspace?: Workspace;
+};
+
+export type ContinuityImportMode =
+  | "update-current"
+  | "create-workspace"
+  | "checkpoint-only";
+
+export type ContinuityImportPreview = {
+  valid: boolean;
+  version: number | null;
+  sourceAi: string;
+  generatedAt: string;
+  projectName: string;
+  projectType: string;
+  currentObjective: string;
+  continuitySummary: string;
+  stableFacts: string[];
+  recentProgress: string[];
+  decisionsMade: string[];
+  openIssues: string[];
+  nextSteps: string[];
+  importantContextForNextAi: string;
+  recentConversationExcerpts: string;
+  testBuildGitStatus: string[];
+  risksWarnings: string[];
+  rulesForFutureAi: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type ContinuityImportApplyResult = {
+  ok: boolean;
+  message: string;
+  mode: ContinuityImportMode;
+  workspace: Workspace | null;
+  sourceAi: string;
+  projectName: string;
+};
+
+export type LocalAiStatus = {
+  detected: boolean;
+  baseUrl: string;
+  models: string[];
+  selected: boolean;
+  selectedModel: string | null;
+  message: string;
 };
 
 export type TimelineGroup = {

@@ -39,6 +39,7 @@ export function assembleThreadContext(
 export type AssembleProviderContextInput = {
   workspaceName: string;
   continuitySummary?: string | null;
+  importedContextBlock?: string | null;
   messages: Message[];
   maxMessages?: number;
 };
@@ -59,6 +60,7 @@ export function assembleProviderContext(
     rawSummary.length > MAX_CONTINUITY_SUMMARY_CHARS
       ? rawSummary.slice(0, MAX_CONTINUITY_SUMMARY_CHARS)
       : rawSummary;
+  const importedContext = input.importedContextBlock?.trim() ?? "";
 
   const prefixParts: string[] = [];
   const workspaceName = input.workspaceName.trim();
@@ -69,6 +71,12 @@ export function assembleProviderContext(
     prefixParts.push(
       "Continuity summary (user-maintained project context — does not replace message history):\n" +
         boundedSummary,
+    );
+  }
+  if (importedContext) {
+    prefixParts.push(
+      "Latest imported AI chat state (user-provided context imported into ContinuityOS):\n" +
+        importedContext,
     );
   }
 

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ProviderConfig, ProviderTestResult, SecureStorageDiagnostics } from "@shared/types";
+import type {
+  LocalAiStatus,
+  ProviderConfig,
+  ProviderTestResult,
+  SecureStorageDiagnostics,
+} from "@shared/types";
 import { formatProviderSaveError } from "@shared/provider-errors";
 import {
   getProviderDefinition,
@@ -40,11 +45,15 @@ export function ProviderSetupPanel({
   onRemoveKey,
   onOpenUrl,
 }: ProviderSetupPanelProps) {
+  const ollamaDef = getProviderDefinition("ollama");
   const [provider, setProvider] = useState(
     initialProviderId ?? initial?.provider ?? "openai",
   );
   const def = getProviderDefinition(provider);
   const [model, setModel] = useState(initial?.model ?? def.recommendedModel);
+  const [localModel, setLocalModel] = useState(
+    initial?.provider === "ollama" ? initial.model : ollamaDef.recommendedModel,
+  );
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(
     initial?.baseUrl ?? def.defaultBaseUrl ?? "",
@@ -61,6 +70,8 @@ export function ProviderSetupPanel({
   } | null>(null);
   const [lastTest, setLastTest] = useState<ProviderTestResult | null>(null);
   const [secureDiag, setSecureDiag] = useState<SecureStorageDiagnostics | null>(null);
+  const [localAiStatus, setLocalAiStatus] = useState<LocalAiStatus | null>(null);
+  const [loadingLocalAi, setLoadingLocalAi] = useState(false);
 
   useEffect(() => {
     if (!window.continuity?.getSecureStorageDiagnostics) return;
@@ -68,6 +79,28 @@ export function ProviderSetupPanel({
       setSecureDiag(null);
     });
   }, []);
+
+  const refreshLocalAi = async () => {
+    if (!window.continuity?.getLocalAiStatus) return;
+    setLoadingLocalAi(true);
+    try {
+      const status = await window.continuity.getLocalAiStatus(workspaceId);
+      setLocalAiStatus(status);
+      if (status.selectedModel) {
+        setLocalModel(status.selectedModel);
+      } else if (status.models.length > 0) {
+        setLocalModel((current) =>
+          status.models.includes(current) ? current : status.models[0],
+        );
+      }
+    } finally {
+      setLoadingLocalAi(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshLocalAi();
+  }, [workspaceId]);
 
   useEffect(() => {
     const next = getProviderDefinition(provider);
@@ -130,6 +163,52 @@ export function ProviderSetupPanel({
     }
   };
 
+  const runLocalAiTest = async () => {
+    if (!localAiStatus) return;
+    setTesting(true);
+    setBanner(null);
+    setLastTest(null);
+    try {
+      const result = await onTest("ollama", localModel, "", localAiStatus.baseUrl);
+      setLastTest(result);
+      setBanner({
+        tone: result.ok ? "success" : "error",
+        message: result.message,
+      });
+    } catch (err) {
+      setBanner({
+        tone: "error",
+        message: err instanceof Error ? err.message : "Local AI test could not complete.",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const useLocalAi = async () => {
+    if (!localAiStatus) return;
+    setSaving(true);
+    setBanner(null);
+    try {
+      setProvider("ollama");
+      setModel(localModel);
+      setBaseUrl(localAiStatus.baseUrl);
+      await onSave("ollama", localModel, "", localAiStatus.baseUrl);
+      setBanner({
+        tone: "success",
+        message: "Local AI saved successfully.",
+      });
+      await refreshLocalAi();
+    } catch (err) {
+      setBanner({
+        tone: "error",
+        message: formatProviderSaveError(err),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="provider-setup-panel" data-testid="provider-setup-panel">
       <p className="muted small">
@@ -141,6 +220,85 @@ export function ProviderSetupPanel({
           {providerStatusLabel(def.status)}
         </span>
       </p>
+
+      <section className="local-ai-panel" aria-label="Local AI">
+        <div className="local-ai-panel-header">
+          <div>
+            <h3>Local AI</h3>
+            <p className="muted small">Run AI on your computer. No API key required.</p>
+          </div>
+          <span className={localAiStatus?.detected ? "provider-pill ready" : "provider-pill"}>
+            {localAiStatus?.detected ? "Ollama detected" : "Ollama not detected"}
+          </span>
+        </div>
+        <p className="muted small">
+          {localAiStatus?.message ??
+            "Detect Ollama to see whether Local AI is available on this machine."}
+        </p>
+        <div className="local-ai-stats">
+          <span>
+            Base URL:{" "}
+            <span className="mono">
+              {localAiStatus?.baseUrl ?? ollamaDef.defaultBaseUrl ?? "http://localhost:11434"}
+            </span>
+          </span>
+          <span>
+            Models:{" "}
+            <span className="mono">
+              {localAiStatus?.models.length ? localAiStatus.models.join(", ") : "None listed"}
+            </span>
+          </span>
+        </div>
+        <label>
+          Selected local model
+          <select
+            value={localModel}
+            onChange={(e) => setLocalModel(e.target.value)}
+            disabled={loadingLocalAi || (localAiStatus?.models.length ?? 0) === 0}
+          >
+            {(localAiStatus?.models.length ? localAiStatus.models : [ollamaDef.recommendedModel]).map(
+              (option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <div className="provider-tab-actions">
+          <button
+            type="button"
+            className="secondary"
+            disabled={loadingLocalAi}
+            onClick={() => void refreshLocalAi()}
+          >
+            {loadingLocalAi ? "Checking…" : "Detect Ollama"}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={loadingLocalAi}
+            onClick={() => void refreshLocalAi()}
+          >
+            Refresh models
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={testing || !localAiStatus?.detected || !localModel}
+            onClick={() => void runLocalAiTest()}
+          >
+            {testing ? "Testing…" : "Test Local AI"}
+          </button>
+          <button
+            type="button"
+            disabled={saving || !localAiStatus?.detected || !localModel}
+            onClick={() => void useLocalAi()}
+          >
+            {saving ? "Saving…" : "Use Local AI"}
+          </button>
+        </div>
+      </section>
 
       {banner && (
         <p

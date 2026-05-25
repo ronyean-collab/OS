@@ -55,6 +55,38 @@ export function assertContextPackBuildInput(value: unknown): {
   };
 }
 
+export function assertContinuityImportPreviewInput(value: unknown): string {
+  return assertNonEmptyString(value, "text");
+}
+
+export function assertContinuityImportApplyInput(value: unknown): {
+  text: string;
+  mode: "update-current" | "create-workspace" | "checkpoint-only";
+  workspaceId?: string;
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid continuity import input.");
+  }
+  const o = value as Record<string, unknown>;
+  const mode =
+    typeof o.mode === "string" ? o.mode.trim() : "";
+  if (
+    mode !== "update-current" &&
+    mode !== "create-workspace" &&
+    mode !== "checkpoint-only"
+  ) {
+    throw new Error("Invalid continuity import mode.");
+  }
+  return {
+    text: assertNonEmptyString(o.text, "text"),
+    mode,
+    workspaceId:
+      typeof o.workspaceId === "string" && o.workspaceId.trim()
+        ? o.workspaceId.trim()
+        : undefined,
+  };
+}
+
 export function assertManualExchangeSaveInput(value: unknown): {
   workspaceId: string;
   threadId: string;

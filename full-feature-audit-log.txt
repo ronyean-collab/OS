@@ -211,6 +211,17 @@ Chat-like manual fallback guidance (2026-05-25):
 - Added direct fallback actions to copy the Context Pack and jump into pasted-response flow
 - Auto-opened/highlighted the manual reply tools after no-provider or provider-unavailable sends
 
+Continuity import file workflow and local AI foundation (2026-05-25):
+- Added a dedicated markdown ContinuityOS Import File parser/preview/apply flow
+- Import supports update current workspace, create new workspace, and checkpoint-only modes
+- Raw imported source is preserved locally in continuity_records for audit
+- Added a continuity_import_file_applied timeline event
+- Added visible in-app instructions and a copyable “Generate ContinuityOS Import File” prompt
+- Universal Context Pack now includes imported project-state sections (project state, facts, decisions, issues, next steps, latest status, important context)
+- Added Local AI tools for Ollama detection, model refresh, test, and activation
+- Implemented an Ollama adapter with no API key requirement, using the existing provider/runtime path
+- Local AI remains optional; if Ollama is unavailable, local-save/manual fallback still remains the safe continuation path
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -220,6 +231,9 @@ FIXES APPLIED THIS SESSION
 - Restored a normal chat composer while keeping the local-first send path and compact manual fallback
 - Added assistant-only manual response persistence so pasted replies do not duplicate the saved user turn
 - Added chat-like local fallback guidance so no-provider sends feel conversational instead of failed
+- Added a portable AI-chat import workflow with preview/apply and raw-source preservation
+- Enriched Context Pack generation with imported project state
+- Added optional Ollama-based Local AI tools and runtime support without reintroducing an API-key gate
 
 ================================================================================
 UNRESOLVED RISKS
@@ -231,14 +245,16 @@ UNRESOLVED RISKS
 - Restored chat composer still needs live visual confirmation in the packaged renderer
 - Chat-like local fallback guidance still needs live visual confirmation in the packaged renderer
 - Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
+- Continuity import file UI still needs live copy/paste verification against a real external AI chat
+- Local AI tools still need live verification with a real Ollama server/model on this machine
 - Token-aware truncation still not implemented
 
 ================================================================================
 RECOMMENDED NEXT PHASE
 ================================================================================
-1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q
-2. Confirm the normal composer sends locally with no provider and shows the chat-like ContinuityOS fallback guidance
-3. Use Universal Context Pack in a real external AI chat and paste the response back
+1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q, R, S
+2. Use the new import prompt in a real ChatGPT/Claude/Gemini session and verify preview/apply end to end
+3. Start a real Ollama server/model locally and verify detection, test, and saved assistant replies
 4. Future small win: token-aware applyContextTruncation (no architecture change)
 
 ================================================================================

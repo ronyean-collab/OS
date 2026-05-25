@@ -685,3 +685,68 @@ Make no-provider/manual mode feel like a normal chat environment by showing a fr
 - The new fallback card is intentionally local UI guidance, not a saved AI reply
 - Real visual verification is still needed in a live Electron window
 
+---
+
+## 2026-05-25 — Continuity import file workflow and local AI foundation
+
+### Goal
+
+Let users capture project state from any current AI chat as a portable ContinuityOS Import File, import that state safely into the local workspace, make future Context Packs richer with imported state, and add an optional Ollama-based Local AI path without reintroducing a provider gate.
+
+### Implementation
+
+- Added a new `continuity-import-file` service that:
+  - parses markdown `# CONTINUITYOS IMPORT FILE` payloads
+  - previews extracted project state before import
+  - supports:
+    - update current workspace
+    - create new workspace
+    - checkpoint-only import
+  - preserves the raw imported source in `continuity_records`
+  - appends a `continuity_import_file_applied` timeline event
+- Added a shared copyable import prompt and a new renderer `ContinuityImportPanel` in Project tools → Overview with:
+  - visible import instructions
+  - `Copy import prompt`
+  - paste textarea
+  - preview summary
+  - confirm import controls
+- Enriched Universal Context Pack output with imported project-state sections:
+  - `## Project State`
+  - `## Stable Facts`
+  - `## Decisions Made`
+  - `## Open Issues`
+  - `## Next Steps`
+  - `## Latest Known Status`
+  - `## Important Context For Next AI`
+- Added a `Local AI` section to the AI tools panel with:
+  - Ollama detection
+  - model refresh/listing
+  - local-model selection
+  - `Test Local AI`
+  - `Use Local AI`
+- Implemented an Ollama adapter on the existing provider architecture:
+  - no API key required
+  - local chat request path reuses the current stream runtime
+  - if Ollama is selected and reachable, assistant responses are saved normally
+  - if Ollama is unavailable at runtime, the existing local-save/manual-fallback path remains intact
+- Added focused automated coverage for:
+  - import-file parsing/preview/apply
+  - prompt contents
+  - imported-state Context Pack enrichment
+  - calm Ollama-unavailable status
+  - local AI response persistence
+  - imported-state inclusion before local AI calls
+
+### Verification
+
+- Targeted tests: PASS
+- Final full `npm test`: PASS
+- Final full `npm run build`: PASS
+- Dev smoke: PASS (startup logs reached renderer dev server + `start electron app...`; process intentionally stopped after smoke check)
+
+### Notes
+
+- The import-file workflow is intentionally separate from full workspace backup import/export
+- Raw imported state is preserved locally for audit, while canonical chat history remains append-only
+- Live UI validation is still required for third-party AI copy/paste flow and a real Ollama session
+

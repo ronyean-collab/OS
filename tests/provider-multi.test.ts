@@ -37,7 +37,7 @@ describe("multi-provider setup", () => {
     expect(config.provider).toBe("ollama");
     expect(config.hasApiKey).toBe(false);
     expect(config.baseUrl).toBe("http://localhost:11434");
-    expect(config.runtimeReady).toBe(false);
+    expect(config.runtimeReady).toBe(true);
   });
 
   it("anthropic test returns adapter_not_ready", async () => {

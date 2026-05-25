@@ -34,7 +34,7 @@ describe("provider definitions", () => {
   it("runtime ready only for openai in current build", () => {
     expect(isProviderRuntimeReady("openai")).toBe(true);
     expect(isProviderRuntimeReady("anthropic")).toBe(false);
-    expect(isProviderRuntimeReady("ollama")).toBe(false);
+    expect(isProviderRuntimeReady("ollama")).toBe(true);
   });
 
   it("setup instructions differ by provider", () => {

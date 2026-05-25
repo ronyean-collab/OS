@@ -5,6 +5,8 @@ import type {
   AppVersionInfo,
   AutosaveStatus,
   DiagnosticsReport,
+  ContinuityImportApplyResult,
+  ContinuityImportPreview,
   Message,
   ManualAssistantResponseSaveResult,
   ManualExchangeSaveResult,
@@ -37,6 +39,7 @@ import type {
   WorkspaceExportResult,
   WorkspaceHealthReport,
   ProviderTestResult,
+  LocalAiStatus,
   SecureStorageDiagnostics,
 } from "../../src/shared/types";
 
@@ -126,6 +129,16 @@ const api = {
     targetPlatform?: string;
   }): Promise<UniversalContextPackResult> =>
     ipcRenderer.invoke(IPC.CONTEXT_PACK_BUILD, input),
+
+  previewContinuityImport: (text: string): Promise<ContinuityImportPreview> =>
+    ipcRenderer.invoke(IPC.CONTINUITY_IMPORT_PREVIEW, text),
+
+  applyContinuityImport: (input: {
+    text: string;
+    mode: "update-current" | "create-workspace" | "checkpoint-only";
+    workspaceId?: string;
+  }): Promise<ContinuityImportApplyResult> =>
+    ipcRenderer.invoke(IPC.CONTINUITY_IMPORT_APPLY, input),
 
   saveManualExchange: (input: {
     workspaceId: string;
@@ -326,6 +339,9 @@ const api = {
     provider: string,
   ): Promise<ProviderConfig | null> =>
     ipcRenderer.invoke(IPC.PROVIDER_REMOVE_KEY, workspaceId, provider),
+
+  getLocalAiStatus: (workspaceId: string): Promise<LocalAiStatus> =>
+    ipcRenderer.invoke(IPC.LOCAL_AI_STATUS, workspaceId),
 
   openExternalUrl: (url: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.APP_OPEN_EXTERNAL, url),

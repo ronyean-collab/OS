@@ -5,9 +5,11 @@ import { WorkspaceHealthPanel } from "./WorkspaceHealthPanel";
 import { ContinuitySummaryPanel } from "./ContinuitySummaryPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { SnapshotPanel } from "./SnapshotPanel";
+import { ContinuityImportPanel } from "./ContinuityImportPanel";
 import type {
   AppState,
   AutosaveStatus,
+  ContinuityImportApplyResult,
   RestoreExecutionResult,
   RestorePreview,
   SnapshotRecord,
@@ -42,13 +44,14 @@ type Props = {
   onRestored: () => void;
   continuitySummary: string | null;
   onSaveContinuitySummary: (summary: string) => Promise<void>;
+  onContinuityImported: (result: ContinuityImportApplyResult) => Promise<void>;
 };
 
 const TABS: { id: OpsTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "timeline", label: "Timeline" },
   { id: "snapshots", label: "Snapshots" },
-  { id: "provider", label: "Provider" },
+  { id: "provider", label: "AI" },
 ];
 
 export function OpsSidebar({
@@ -76,12 +79,18 @@ export function OpsSidebar({
   onRestored,
   continuitySummary,
   onSaveContinuitySummary,
+  onContinuityImported,
 }: Props) {
   let panel: ReactNode = null;
 
   if (activeTab === "overview") {
     panel = (
       <>
+        <ContinuityImportPanel
+          workspaceId={workspaceId}
+          disabled={recoveryMode}
+          onImported={onContinuityImported}
+        />
         <ContinuitySummaryPanel
           workspaceId={workspaceId}
           summary={continuitySummary}

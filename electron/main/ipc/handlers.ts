@@ -52,11 +52,18 @@ import {
   saveManualExchange,
 } from "../services/context-pack-service";
 import {
+  applyContinuityImportFile,
+  previewContinuityImportFile,
+} from "../services/continuity-import-file";
+import { getLocalAiStatus } from "../services/local-ai-service";
+import {
   buildOrphanRepairPreview,
   executeAttachOrphansToRecoveredThread,
   executeQuarantineOrphanedMessages,
 } from "../services/orphan-repair";
 import {
+  assertContinuityImportApplyInput,
+  assertContinuityImportPreviewInput,
   assertManualAssistantResponseSaveInput,
   assertContextPackBuildInput,
   assertManualExchangeSaveInput,
@@ -313,6 +320,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CONTEXT_PACK_BUILD, (_e, input: unknown) => {
     const db = requireDb();
     return buildUniversalContextPack(db, assertContextPackBuildInput(input));
+  });
+
+  ipcMain.handle(IPC.CONTINUITY_IMPORT_PREVIEW, (_e, input: unknown) => {
+    return previewContinuityImportFile(assertContinuityImportPreviewInput(input));
+  });
+
+  ipcMain.handle(IPC.CONTINUITY_IMPORT_APPLY, (_e, input: unknown) => {
+    const db = requireDb();
+    return applyContinuityImportFile(db, assertContinuityImportApplyInput(input));
   });
 
   ipcMain.handle(IPC.MANUAL_EXCHANGE_SAVE, (_e, input: unknown) => {
@@ -684,6 +700,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.PROVIDER_GET_CONFIG, (_e, workspaceId: string) => {
     const db = requireDb();
     return getProviderConfig(db, assertNonEmptyString(workspaceId, "workspaceId"));
+  });
+
+  ipcMain.handle(IPC.LOCAL_AI_STATUS, async (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    return getLocalAiStatus(db, assertNonEmptyString(workspaceId, "workspaceId"));
   });
 
   ipcMain.handle(

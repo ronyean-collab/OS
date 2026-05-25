@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 32 files / 169 tests | ☐ | |
+| H1 | `npm test` — 35 files / 183 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -252,6 +252,40 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
+## R. Continuity import file workflow
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| R1 | Project tools shows “Create import file from current AI chat” instructions | ☐ | |
+| R2 | Copy import prompt works and mentions any AI, not only ChatGPT | ☐ | |
+| R3 | Pasting a valid ContinuityOS Import File shows preview before import | ☐ | |
+| R4 | Preview includes project name/type, objective, summary, counts, source AI, generated date | ☐ | |
+| R5 | Update current workspace applies imported state without deleting messages | ☐ | Automated: `continuity-import-file.test.ts` |
+| R6 | Create new workspace import works | ☐ | Automated: `continuity-import-file.test.ts` |
+| R7 | Checkpoint-only import stores the file without overwriting continuity summary | ☐ | |
+| R8 | Raw import source is preserved safely for audit | ☐ | Automated: `continuity-import-file.test.ts` |
+| R9 | Timeline shows `continuity_import_file_applied` after confirm | ☐ | Automated: `continuity-import-file.test.ts` |
+| R10 | New Context Pack includes imported project state sections | ☐ | Automated: `continuity-import-file.test.ts` |
+
+---
+
+## S. Local AI / Ollama
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| S1 | Project tools AI panel shows Local AI section | ☐ | |
+| S2 | Detect Ollama shows calm not-running state when unavailable | ☐ | Automated: `local-ai.test.ts` |
+| S3 | Refresh models lists available Ollama models when reachable | ☐ | |
+| S4 | Local AI setup requires no API key | ☐ | Automated: `provider-multi.test.ts` |
+| S5 | Use Local AI saves Ollama as the active provider | ☐ | |
+| S6 | Test Local AI uses Ollama connection test copy | ☐ | |
+| S7 | Local AI chat saves assistant response when Ollama is reachable | ☐ | Automated: `local-ai.test.ts` |
+| S8 | Imported state and continuity summary are included before local AI call | ☐ | Automated: `local-ai.test.ts` |
+| S9 | If Ollama is unavailable, Manual Mode fallback still works calmly | ☐ | Requires live UI validation |
+| S10 | Local AI remains optional and does not block startup or normal manual chat | ☐ | |
+
+---
+
 ## Automated test commands
 
 ```bash
@@ -265,6 +299,7 @@ npx vitest run tests/provider-setup.test.ts
 npx vitest run tests/provider-multi.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/thread-sidebar-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts tests/manual-fallback-copy.test.ts
+npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts

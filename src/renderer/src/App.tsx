@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AppState,
   AutosaveStatus,
+  ContinuityImportApplyResult,
   ImportPreview,
   Message,
   ProviderConfig,
@@ -625,6 +626,18 @@ export function App() {
     await refreshOpsPanels(workspace.id);
   };
 
+  const handleContinuityImported = async (result: ContinuityImportApplyResult) => {
+    setExportMessage(result.message);
+    if (result.workspace) {
+      await continuity.setActiveWorkspace(result.workspace.id);
+      await loadWorkspace(result.workspace);
+      return;
+    }
+    if (workspace) {
+      await refreshOpsPanels(workspace.id);
+    }
+  };
+
   const isEncryptedBackupFile = (text: string): boolean => {
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
@@ -951,6 +964,7 @@ export function App() {
             onRestored={handleAfterRestore}
             continuitySummary={workspace?.continuitySummary ?? null}
             onSaveContinuitySummary={handleSaveContinuitySummary}
+            onContinuityImported={handleContinuityImported}
           />
         )}
       </div>

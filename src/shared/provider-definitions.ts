@@ -160,12 +160,12 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     setupSteps: [
       "Install Ollama from ollama.com and start the server.",
       "Pull a model: ollama pull llama3.1",
-      "Set the base URL below (default http://localhost:11434) and test connection.",
+      "Set the base URL below (default http://localhost:11434), test connection, then use Local AI.",
     ],
     billingNote: "No API billing — compute runs on your machine.",
     privacyNote:
       "Messages stay on your device when Ollama runs locally. No API key is stored.",
-    status: "setup_only",
+    status: "ready",
   },
 ];
 
