@@ -735,6 +735,47 @@ button.load-older:disabled {
   border-top: 1px solid #243041;
 }
 
+.manual-context-pack-wrap {
+  padding: 0 1.25rem 1rem;
+  border-top: 1px solid #1a2433;
+}
+
+.manual-context-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.9rem;
+}
+
+.manual-context-pack h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.manual-context-pack p {
+  margin: 0;
+}
+
+.manual-context-pack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.manual-context-pack-preview {
+  min-height: 16rem;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.manual-context-pack-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 button.cancel {
   background: #8b3a3a;
 }

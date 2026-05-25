@@ -541,3 +541,39 @@ Implement minimal user-editable Project Continuity Summary: persist per workspac
 - Commit: feat: add project continuity summary (pending this session)
 - Push: approved when tests/build pass
 
+---
+
+## 2026-05-18 — Universal Context Pack / Manual AI Mode
+
+### Goal
+
+Implement a no-provider, cross-platform copy/paste path so users can continue conversations in ChatGPT, Claude, Gemini, OpenRouter, Ollama, or any AI and then save the pasted response back into ContinuityOS.
+
+### Implementation
+
+- Added `context-pack-service.ts` with:
+  - `buildUniversalContextPack()`
+  - `saveManualExchange()`
+- New IPC/preload methods:
+  - `context-pack:build`
+  - `manual-exchange:save`
+- Added `ManualContextPackPanel` under the chat composer
+- Manual exchange saves a normal user message plus a normal assistant message with manual metadata in `raw_provider_payload`
+- Added timeline events:
+  - `manual_context_pack_created`
+  - `manual_ai_response_saved`
+- Added tests in `tests/manual-context-pack.test.ts`
+
+### Verification
+
+- Focused tests: PASS
+- Baseline `npm test`: PASS
+- Baseline `npm run build`: PASS
+- Final verification pending end-of-task run
+
+### Notes
+
+- Manual mode does not require any provider config or API key
+- Provider chat path remains intact
+- UI still needs manual external-chat validation in a real third-party AI window
+

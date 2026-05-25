@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { Message, Thread } from "@shared/types";
+import type { Message, Thread, UniversalContextPackResult } from "@shared/types";
+import { ManualContextPackPanel } from "./ManualContextPackPanel";
 
 type Props = {
   thread: Thread | null;
@@ -14,6 +15,15 @@ type Props = {
   streaming: boolean;
   streamError: string | null;
   onSend: (content: string) => Promise<void>;
+  onBuildContextPack: (input: {
+    userRequest: string;
+    targetPlatform: string;
+  }) => Promise<UniversalContextPackResult>;
+  onSaveManualExchange: (input: {
+    userRequest: string;
+    assistantResponse: string;
+    targetPlatform: string;
+  }) => Promise<void>;
   onCancelStream: () => void;
   disabled: boolean;
 };
@@ -31,6 +41,8 @@ export function ChatPanel({
   streaming,
   streamError,
   onSend,
+  onBuildContextPack,
+  onSaveManualExchange,
   onCancelStream,
   disabled,
 }: Props) {
@@ -166,6 +178,17 @@ export function ChatPanel({
           </button>
         )}
       </form>
+      <div className="manual-context-pack-wrap">
+        <ManualContextPackPanel
+          thread={thread}
+          draft={draft}
+          onDraftChange={setDraft}
+          disabled={disabled}
+          streaming={streaming}
+          onBuildPack={onBuildContextPack}
+          onSaveExchange={onSaveManualExchange}
+        />
+      </div>
     </section>
   );
 }

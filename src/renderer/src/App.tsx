@@ -12,6 +12,7 @@ import type {
   Thread,
   ThreadActionResult,
   TimelineGroup,
+  UniversalContextPackResult,
   Workspace,
   WorkspaceHealthReport,
 } from "@shared/types";
@@ -508,6 +509,43 @@ export function App() {
     }
   };
 
+  const handleBuildContextPack = async (input: {
+    userRequest: string;
+    targetPlatform: string;
+  }): Promise<UniversalContextPackResult> => {
+    if (!workspace || !activeThread) {
+      throw new Error("Open a thread before building a Context Pack.");
+    }
+    const result = await continuity.buildContextPack({
+      workspaceId: workspace.id,
+      threadId: activeThread.id,
+      userRequest: input.userRequest,
+      targetPlatform: input.targetPlatform,
+    });
+    await refreshOpsPanels(workspace.id);
+    return result;
+  };
+
+  const handleSaveManualExchange = async (input: {
+    userRequest: string;
+    assistantResponse: string;
+    targetPlatform: string;
+  }) => {
+    if (!workspace || !activeThread) {
+      throw new Error("Open a thread before saving a manual exchange.");
+    }
+    await continuity.saveManualExchange({
+      workspaceId: workspace.id,
+      threadId: activeThread.id,
+      userRequest: input.userRequest,
+      assistantResponse: input.assistantResponse,
+      targetPlatform: input.targetPlatform,
+    });
+    await reloadThreads(workspace.id);
+    await loadThreadMessages(activeThread.id);
+    await refreshOpsPanels(workspace.id);
+  };
+
   const handleCancelStream = () => {
     const id = activeStreamIdRef.current;
     if (!id) return;
@@ -970,6 +1008,8 @@ export function App() {
           streaming={streaming}
           streamError={streamError}
           onSend={handleSendMessage}
+          onBuildContextPack={handleBuildContextPack}
+          onSaveManualExchange={handleSaveManualExchange}
           onCancelStream={handleCancelStream}
           disabled={appState?.recoveryMode ?? false}
         />

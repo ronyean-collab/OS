@@ -120,7 +120,7 @@ F. Context assembly / RAM protection — PARTIAL
    - applyContextTruncation: NO-OP (no token-aware budget yet)
    - Very long single messages: not specially truncated
    - Tests: context-assembly.test.ts, workspace-health.test.ts
-   Gaps: no project continuity summary; export holds full package in memory transiently
+  Gaps: token-aware truncation not implemented; export holds full package in memory transiently
 
 G. Provider onboarding / setup — PASS (automated)
    Files: provider-definitions, ProviderOnboarding, ProviderSetupPanel, provider-service
@@ -167,7 +167,7 @@ CONTEXT / RAM ANSWERS (from code)
 3. Very long single messages: not split/truncated by token logic
 4. RAM risks: export/import full bundle in memory; user loading all older pages in UI;
    ops panels load timeline/snapshots on refresh
-5. Missing for long-chat replacement: project continuity summary, token-aware truncation,
+5. Remaining long-chat gaps: token-aware truncation,
    semantic retrieval (out of scope per product direction)
 
 ================================================================================
@@ -185,6 +185,12 @@ Project Continuity Summary v1 (2026-05-18):
 - Export/import and snapshot checkpoint preserve summary
 - Max 8000 chars; does not delete or replace canonical messages
 
+Universal Context Pack / Manual AI Mode v1 (2026-05-18):
+- Implemented: cross-platform copy/paste continuity workflow with no provider required
+- Builds readable plain-text context packs from workspace name, continuity summary, thread title, recent messages, and current request
+- Saves pasted external AI responses back into the active thread as normal local messages
+- Works in no-provider mode and preserves export/import compatibility
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -198,15 +204,15 @@ UNRESOLVED RISKS
 - Live OpenAI streaming not tested in this pass
 - RAM profiling not performed
 - Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
-- Project Continuity Summary v1 implemented (schema 6, workspaces.continuity_summary)
-- Local commit d55ac34 may be ahead of origin/main
+- Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
+- Token-aware truncation still not implemented
 
 ================================================================================
 RECOMMENDED NEXT PHASE
 ================================================================================
-1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O (30 min)
-2. Confirm npm run dev UI: no Recovery, workspace loads
-3. Optional: push d55ac34 + audit docs commit to origin/main when ready
+1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P
+2. Use Universal Context Pack in a real external AI chat and paste the response back
+3. Confirm restart/export/import after a manual exchange
 4. Future small win: token-aware applyContextTruncation (no architecture change)
 
 ================================================================================

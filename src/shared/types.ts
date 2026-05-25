@@ -32,7 +32,9 @@ export type TimelineEventType =
   | "workspace_import_started"
   | "workspace_import_completed"
   | "workspace_import_failed"
-  | "continuity_summary_updated";
+  | "continuity_summary_updated"
+  | "manual_context_pack_created"
+  | "manual_ai_response_saved";
 
 export type TimelineEventSource = "user" | "system" | "import" | "recovery";
 
@@ -459,6 +461,19 @@ export type SendMessageInput = {
   threadId: string;
   role: MessageRole;
   content: string;
+};
+
+export type UniversalContextPackResult = {
+  targetPlatform: string;
+  text: string;
+  includedRecentMessageCount: number;
+  truncatedOlderMessages: boolean;
+};
+
+export type ManualExchangeSaveResult = {
+  userMessage: Message;
+  assistantMessage: Message;
+  targetPlatform: string;
 };
 
 export type SendMessageResult = {

@@ -28,6 +28,8 @@ const HUMAN_LABELS: Record<TimelineEventType, string> = {
   workspace_import_started: "Import started",
   workspace_import_completed: "Import completed",
   workspace_import_failed: "Import failed",
+  manual_context_pack_created: "Context pack created",
+  manual_ai_response_saved: "Manual AI response saved",
 };
 
 export type TimelineGroup = {

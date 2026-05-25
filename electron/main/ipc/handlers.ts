@@ -47,11 +47,17 @@ import {
 } from "../services/thread-management-service";
 import { cancelStream, startAssistantStream } from "../services/stream-runtime";
 import {
+  buildUniversalContextPack,
+  saveManualExchange,
+} from "../services/context-pack-service";
+import {
   buildOrphanRepairPreview,
   executeAttachOrphansToRecoveredThread,
   executeQuarantineOrphanedMessages,
 } from "../services/orphan-repair";
 import {
+  assertContextPackBuildInput,
+  assertManualExchangeSaveInput,
   assertNonEmptyString,
   assertSendMessageInput,
   assertStreamId,
@@ -301,6 +307,16 @@ export function registerIpcHandlers(): void {
       return updateContinuitySummary(db, id, summary);
     },
   );
+
+  ipcMain.handle(IPC.CONTEXT_PACK_BUILD, (_e, input: unknown) => {
+    const db = requireDb();
+    return buildUniversalContextPack(db, assertContextPackBuildInput(input));
+  });
+
+  ipcMain.handle(IPC.MANUAL_EXCHANGE_SAVE, (_e, input: unknown) => {
+    const db = requireDb();
+    return saveManualExchange(db, assertManualExchangeSaveInput(input));
+  });
 
   ipcMain.handle(IPC.WORKSPACE_EXPORT, (_e, workspaceId: string) => {
     try {

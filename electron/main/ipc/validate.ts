@@ -36,3 +36,41 @@ export function assertSendMessageInput(value: unknown): {
     content: assertNonEmptyString(o.content, "content"),
   };
 }
+
+export function assertContextPackBuildInput(value: unknown): {
+  workspaceId: string;
+  threadId: string;
+  userRequest: string;
+  targetPlatform?: string;
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid context pack input.");
+  }
+  const o = value as Record<string, unknown>;
+  return {
+    workspaceId: assertNonEmptyString(o.workspaceId, "workspaceId"),
+    threadId: assertThreadId(o.threadId),
+    userRequest: assertNonEmptyString(o.userRequest, "userRequest"),
+    targetPlatform: typeof o.targetPlatform === "string" ? o.targetPlatform.trim() : undefined,
+  };
+}
+
+export function assertManualExchangeSaveInput(value: unknown): {
+  workspaceId: string;
+  threadId: string;
+  userRequest: string;
+  assistantResponse: string;
+  targetPlatform?: string;
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid manual exchange input.");
+  }
+  const o = value as Record<string, unknown>;
+  return {
+    workspaceId: assertNonEmptyString(o.workspaceId, "workspaceId"),
+    threadId: assertThreadId(o.threadId),
+    userRequest: assertNonEmptyString(o.userRequest, "userRequest"),
+    assistantResponse: assertNonEmptyString(o.assistantResponse, "assistantResponse"),
+    targetPlatform: typeof o.targetPlatform === "string" ? o.targetPlatform.trim() : undefined,
+  };
+}

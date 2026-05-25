@@ -6,6 +6,7 @@ import type {
   AutosaveStatus,
   DiagnosticsReport,
   Message,
+  ManualExchangeSaveResult,
   MessagePageResult,
   ProviderConfig,
   ImportExecutionResult,
@@ -30,6 +31,7 @@ import type {
   MigrationDryRunReport,
   RestorePreview,
   UpdateReadinessReport,
+  UniversalContextPackResult,
   BackupReminderStatus,
   WorkspaceExportResult,
   WorkspaceHealthReport,
@@ -115,6 +117,23 @@ const api = {
     summary: string,
   ): Promise<Workspace> =>
     ipcRenderer.invoke(IPC.WORKSPACE_UPDATE_CONTINUITY_SUMMARY, workspaceId, summary),
+
+  buildContextPack: (input: {
+    workspaceId: string;
+    threadId: string;
+    userRequest: string;
+    targetPlatform?: string;
+  }): Promise<UniversalContextPackResult> =>
+    ipcRenderer.invoke(IPC.CONTEXT_PACK_BUILD, input),
+
+  saveManualExchange: (input: {
+    workspaceId: string;
+    threadId: string;
+    userRequest: string;
+    assistantResponse: string;
+    targetPlatform?: string;
+  }): Promise<ManualExchangeSaveResult> =>
+    ipcRenderer.invoke(IPC.MANUAL_EXCHANGE_SAVE, input),
 
   exportWorkspace: (workspaceId: string): Promise<WorkspaceExportResult> =>
     ipcRenderer.invoke(IPC.WORKSPACE_EXPORT, workspaceId),

@@ -48,7 +48,7 @@ function auditLogPath(): string {
     try {
       return app.getPath("userData");
     } catch {
-      return path.join(os.tmpdir(), "continuity-desktop-test");
+      return path.join(os.tmpdir(), `continuity-desktop-test-${process.pid}`);
     }
   })();
   return path.join(root, "reliability-audit.jsonl");
@@ -108,5 +108,16 @@ export function readAuditEvents(limit = 200): AuditEvent[] {
 
 export function clearAuditLogForTests(): void {
   const logPath = auditLogPath();
-  if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
+  if (!fs.existsSync(logPath)) return;
+  try {
+    fs.unlinkSync(logPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | undefined)?.code;
+    if (code === "ENOENT") return;
+    if (code === "EPERM" || code === "EBUSY") {
+      fs.writeFileSync(logPath, "", "utf8");
+      return;
+    }
+    throw err;
+  }
 }

@@ -80,7 +80,7 @@ Use this checklist for product-readiness and release verification.
 | E7 | Timeline events recorded for key actions | ☐ | |
 | E8 | Replay hash stable for unchanged history | ☐ | |
 | E9 | Workspace health scan useful | ☐ | |
-| E10 | Project continuity summary (user-editable) | ☐ | **Not in v1 yet** |
+| E10 | Project continuity summary (user-editable) | ☐ | |
 
 ---
 
@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 30 files / 150 tests | ☐ | |
+| H1 | `npm test` — 32 files / 168 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -214,6 +214,23 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
+## P. Universal Context Pack / manual AI mode
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| P1 | Generate Universal Context Pack with no provider configured | ☐ | |
+| P2 | User can preview exactly what will be copied before copying | ☐ | |
+| P3 | Copy Context Pack works for ChatGPT / Claude / Gemini / Any AI | ☐ | |
+| P4 | Paste AI response back and save exchange into current thread | ☐ | |
+| P5 | Restart app and confirm saved manual exchange persists | ☐ | |
+| P6 | New Context Pack includes the pasted assistant response in recent context | ☐ | |
+| P7 | Manual exchange works without any API key | ☐ | |
+| P8 | Export/import preserves manual exchange messages | ☐ | Automated: `manual-context-pack.test.ts` |
+| P9 | Timeline shows context pack creation + manual response save | ☐ | |
+| P10 | No provider mode still shows calm guidance and does not crash | ☐ | |
+
+---
+
 ## Automated test commands
 
 ```bash
@@ -221,6 +238,7 @@ npm test
 npm run build
 npx vitest run tests/context-assembly.test.ts
 npx vitest run tests/continuity-summary.test.ts
+npx vitest run tests/manual-context-pack.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts
