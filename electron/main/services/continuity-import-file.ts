@@ -1,9 +1,16 @@
 import { v4 as uuid } from "uuid";
 import type Database from "better-sqlite3";
+import {
+  LEGACY_CONTINUITY_IMPORT_HEADER,
+  MARKDOWN_MEMORY_HEADER,
+  MARKDOWN_MEMORY_VERSION,
+} from "../../../src/shared/markdown-memory-schema";
 import type {
   ContinuityImportApplyResult,
   ContinuityImportMode,
-  ContinuityImportPreview,
+  MarkdownMemoryFileType,
+  MarkdownMemoryPreview,
+  MarkdownMemoryRecordSummary,
   Workspace,
 } from "../../../src/shared/types";
 import { runInTransaction } from "../database/transactions";
@@ -11,12 +18,15 @@ import { appendTimelineEvent } from "./continuity-service";
 import { MAX_CONTINUITY_SUMMARY_CHARS } from "./context-assembly";
 import { getWorkspaceById } from "./workspace-service";
 
-const IMPORT_HEADER = "# CONTINUITYOS IMPORT FILE";
-const SUPPORTED_IMPORT_VERSION = 1;
 const APPLIED_RECORD_TYPE = "continuity_import_file_applied_v1";
 const CHECKPOINT_RECORD_TYPE = "continuity_import_file_checkpoint_v1";
+const GENERATED_RECORD_TYPE = "markdown_memory_generated_v1";
+const ACCEPTED_CONTEXT_RECORD_TYPES = [
+  APPLIED_RECORD_TYPE,
+  CHECKPOINT_RECORD_TYPE,
+] as const;
 
-type ParsedContinuityImport = ContinuityImportPreview & {
+type ParsedContinuityImport = MarkdownMemoryPreview & {
   rawSource: string;
 };
 
@@ -81,7 +91,7 @@ function hasKnownValue(value: string | null | undefined): boolean {
 function limitString(value: string, maxChars: number): string {
   const trimmed = value.trim();
   if (trimmed.length <= maxChars) return trimmed;
-  return `${trimmed.slice(0, maxChars).trimEnd()}…`;
+  return `${trimmed.slice(0, maxChars).trimEnd()}\n[truncated for context size]`;
 }
 
 function normalizeList(lines: string[]): string[] {
@@ -90,9 +100,7 @@ function normalizeList(lines: string[]): string[] {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
+    if (!trimmed) continue;
 
     const bulletMatch = /^[-*]\s+(.*)$/.exec(trimmed);
     const numberedMatch = /^\d+\.\s+(.*)$/.exec(trimmed);
@@ -120,9 +128,25 @@ function normalizeTextSection(lines: string[]): string {
   return normalizeUnknown(lines.join("\n").trim());
 }
 
+function normalizeFileType(raw: string | null | undefined): MarkdownMemoryFileType {
+  const value = raw?.trim().toLowerCase();
+  if (
+    value === "continuity-import" ||
+    value === "continuity-export" ||
+    value === "ai-handoff" ||
+    value === "thread-summary" ||
+    value === "project-state"
+  ) {
+    return value;
+  }
+  return "continuity-import";
+}
+
 function buildEmptyPreview(rawSource = ""): ParsedContinuityImport {
   return {
     valid: false,
+    fileType: "continuity-import",
+    source: "UNKNOWN",
     version: null,
     sourceAi: "UNKNOWN",
     generatedAt: "UNKNOWN",
@@ -146,7 +170,14 @@ function buildEmptyPreview(rawSource = ""): ParsedContinuityImport {
   };
 }
 
-export function previewContinuityImportFile(raw: string): ContinuityImportPreview {
+function detectHeader(firstNonEmptyLine: string): "memory" | "legacy-import" | null {
+  const upper = firstNonEmptyLine.toUpperCase();
+  if (upper === MARKDOWN_MEMORY_HEADER) return "memory";
+  if (upper === LEGACY_CONTINUITY_IMPORT_HEADER) return "legacy-import";
+  return null;
+}
+
+export function previewContinuityImportFile(raw: string): MarkdownMemoryPreview {
   return parseContinuityImportFile(raw);
 }
 
@@ -162,8 +193,11 @@ export function parseContinuityImportFile(raw: string): ParsedContinuityImport {
   const lines = normalized.split("\n");
   const firstNonEmptyIndex = lines.findIndex((line) => line.trim().length > 0);
   const firstNonEmptyLine = firstNonEmptyIndex >= 0 ? lines[firstNonEmptyIndex].trim() : "";
-  if (firstNonEmptyLine.toUpperCase() !== IMPORT_HEADER) {
-    preview.errors.push("Missing `# CONTINUITYOS IMPORT FILE` header.");
+  const headerType = detectHeader(firstNonEmptyLine);
+  if (!headerType) {
+    preview.errors.push(
+      "Missing `# CONTINUITYOS MEMORY FILE` header (legacy `# CONTINUITYOS IMPORT FILE` is also accepted).",
+    );
     return preview;
   }
 
@@ -193,20 +227,28 @@ export function parseContinuityImportFile(raw: string): ParsedContinuityImport {
   const versionRaw = metadata.get("version") ?? "";
   if (!versionRaw) {
     preview.warnings.push("Missing version. Assuming version 1.");
-    preview.version = SUPPORTED_IMPORT_VERSION;
+    preview.version = MARKDOWN_MEMORY_VERSION;
   } else {
     const version = Number.parseInt(versionRaw, 10);
     if (Number.isNaN(version)) {
       preview.errors.push("Version must be a number.");
     } else {
       preview.version = version;
-      if (version !== SUPPORTED_IMPORT_VERSION) {
+      if (version !== MARKDOWN_MEMORY_VERSION) {
         preview.errors.push(`Unsupported version ${version}.`);
       }
     }
   }
 
-  preview.sourceAi = normalizeUnknown(metadata.get("source_ai"));
+  preview.fileType =
+    headerType === "legacy-import"
+      ? "continuity-import"
+      : normalizeFileType(metadata.get("file_type"));
+  preview.source =
+    headerType === "legacy-import"
+      ? normalizeUnknown(metadata.get("source_ai"))
+      : normalizeUnknown(metadata.get("source"));
+  preview.sourceAi = preview.source;
   preview.generatedAt = normalizeUnknown(metadata.get("generated_at"));
   preview.projectName = normalizeUnknown(metadata.get("project_name"));
   preview.projectType = normalizeUnknown(metadata.get("project_type"));
@@ -221,7 +263,7 @@ export function parseContinuityImportFile(raw: string): ParsedContinuityImport {
 
   if (!hasKnownValue(preview.currentObjective) && !hasKnownValue(preview.continuitySummary)) {
     preview.warnings.push(
-      "The import file is missing both a current objective and a continuity summary.",
+      "The markdown memory file is missing both a current objective and a continuity summary.",
     );
   }
 
@@ -264,7 +306,7 @@ function mergeContinuitySummary(
     return importedSummary.slice(0, MAX_CONTINUITY_SUMMARY_CHARS);
   }
 
-  const importedHeader = `Imported AI chat state (${parsed.sourceAi}${
+  const importedHeader = `Imported markdown memory (${parsed.sourceAi}${
     hasKnownValue(parsed.generatedAt) ? `, ${parsed.generatedAt}` : ""
   }):`;
   const merged = `${existingSummary.trim()}\n\n${importedHeader}\n${importedSummary}`;
@@ -278,7 +320,7 @@ function createWorkspaceFromImport(
 ): Workspace {
   const id = uuid();
   const now = new Date().toISOString();
-  const name = hasKnownValue(parsed.projectName) ? parsed.projectName : "Imported AI chat state";
+  const name = hasKnownValue(parsed.projectName) ? parsed.projectName : "Imported markdown memory";
   db.prepare(
     `INSERT INTO workspaces (id, user_id, name, created_at, updated_at, last_opened_at, continuity_summary)
      VALUES (?, NULL, ?, ?, ?, ?, ?)`,
@@ -294,6 +336,14 @@ function createWorkspaceFromImport(
   };
 }
 
+function buildRecordTitle(parsed: ParsedContinuityImport): string {
+  const label = parsed.fileType.replace(/-/g, " ");
+  if (hasKnownValue(parsed.projectName)) {
+    return `${parsed.projectName} · ${label}`;
+  }
+  return label;
+}
+
 function insertContinuityImportRecord(
   db: Database.Database,
   workspaceId: string,
@@ -302,8 +352,7 @@ function insertContinuityImportRecord(
 ): void {
   const recordId = uuid();
   const appliedAt = new Date().toISOString();
-  const recordType =
-    mode === "checkpoint-only" ? CHECKPOINT_RECORD_TYPE : APPLIED_RECORD_TYPE;
+  const recordType = mode === "checkpoint-only" ? CHECKPOINT_RECORD_TYPE : APPLIED_RECORD_TYPE;
   const payload: StoredContinuityImportRecord = {
     ...parsed,
     appliedAt,
@@ -328,7 +377,7 @@ export function applyContinuityImportFile(
   if (!parsed.valid) {
     return {
       ok: false,
-      message: parsed.errors[0] ?? "Import file is not valid.",
+      message: parsed.errors[0] ?? "Markdown memory file is not valid.",
       mode: input.mode,
       workspace: null,
       sourceAi: parsed.sourceAi,
@@ -340,7 +389,7 @@ export function applyContinuityImportFile(
   if (mode !== "create-workspace" && !input.workspaceId?.trim()) {
     return {
       ok: false,
-      message: "Select a workspace before applying this import file.",
+      message: "Select a workspace before applying this markdown memory file.",
       mode,
       workspace: null,
       sourceAi: parsed.sourceAi,
@@ -399,8 +448,8 @@ export function applyContinuityImportFile(
     appendTimelineEvent(db, {
       workspaceId: workspace!.id,
       type: "continuity_import_file_applied",
-      title: "AI chat state imported",
-      description: `Applied ${parsed.sourceAi} import file to ${modeLabel}${
+      title: "Markdown memory imported",
+      description: `Applied ${parsed.sourceAi} ${parsed.fileType} to ${modeLabel}${
         counts ? ` with ${counts}` : ""
       }.`,
       source: "user",
@@ -417,10 +466,10 @@ export function applyContinuityImportFile(
     ok: true,
     message:
       mode === "checkpoint-only"
-        ? "AI chat state saved as a checkpoint."
+        ? "Markdown memory imported as a checkpoint. Future Context Packs will include this project state."
         : mode === "create-workspace"
-          ? "AI chat state imported into a new workspace."
-          : "AI chat state imported into the current workspace.",
+          ? "Markdown memory imported into a new workspace."
+          : "Markdown memory imported. Future Context Packs will include this project state.",
     mode,
     workspace: targetWorkspace,
     sourceAi: parsed.sourceAi,
@@ -456,11 +505,16 @@ function coerceStoredImport(value: unknown): ParsedContinuityImport | null {
     ? record.rulesForFutureAi.map((item) => String(item))
     : [];
 
+  const fileType = normalizeFileType(String(record.fileType ?? record.file_type ?? "continuity-import"));
+  const source = normalizeUnknown(String(record.source ?? record.sourceAi ?? "UNKNOWN"));
+
   return {
     valid: true,
+    fileType,
+    source,
     version:
-      typeof record.version === "number" ? record.version : SUPPORTED_IMPORT_VERSION,
-    sourceAi: normalizeUnknown(String(record.sourceAi ?? "UNKNOWN")),
+      typeof record.version === "number" ? record.version : MARKDOWN_MEMORY_VERSION,
+    sourceAi: source,
     generatedAt: normalizeUnknown(String(record.generatedAt ?? "UNKNOWN")),
     projectName: normalizeUnknown(String(record.projectName ?? "UNKNOWN")),
     projectType: normalizeUnknown(String(record.projectType ?? "UNKNOWN")),
@@ -490,15 +544,16 @@ export function getLatestAppliedContinuityImport(
   db: Database.Database,
   workspaceId: string,
 ): ParsedContinuityImport | null {
+  const placeholders = ACCEPTED_CONTEXT_RECORD_TYPES.map(() => "?").join(", ");
   const row = db
     .prepare(
       `SELECT payload_json
        FROM continuity_records
-       WHERE workspace_id = ? AND record_type = ?
+       WHERE workspace_id = ? AND record_type IN (${placeholders})
        ORDER BY created_at DESC, id DESC
        LIMIT 1`,
     )
-    .get(workspaceId, APPLIED_RECORD_TYPE) as { payload_json: string } | undefined;
+    .get(workspaceId, ...ACCEPTED_CONTEXT_RECORD_TYPES) as { payload_json: string } | undefined;
 
   if (!row?.payload_json) return null;
   try {
@@ -506,6 +561,54 @@ export function getLatestAppliedContinuityImport(
   } catch {
     return null;
   }
+}
+
+export function listMarkdownMemoryRecords(
+  db: Database.Database,
+  workspaceId: string,
+  limit = 12,
+): MarkdownMemoryRecordSummary[] {
+  const rows = db
+    .prepare(
+      `SELECT id, workspace_id, payload_json, created_at
+       FROM continuity_records
+       WHERE workspace_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`,
+    )
+    .all(workspaceId, limit) as Array<{
+      id: string;
+      workspace_id: string;
+      payload_json: string;
+      created_at: string;
+    }>;
+
+  return rows.flatMap((row) => {
+    try {
+      const parsed = coerceStoredImport(JSON.parse(row.payload_json) as unknown);
+      if (!parsed) return [];
+      return [
+        {
+          id: row.id,
+          workspaceId: row.workspace_id,
+          fileType: parsed.fileType,
+          source: parsed.source,
+          sourceAi: parsed.sourceAi,
+          title: buildRecordTitle(parsed),
+          projectName: parsed.projectName,
+          currentObjective: parsed.currentObjective,
+          continuitySummary: parsed.continuitySummary,
+          decisionsMade: parsed.decisionsMade,
+          openIssues: parsed.openIssues,
+          nextSteps: parsed.nextSteps,
+          createdAt: row.created_at,
+          rawMarkdown: parsed.rawSource,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
 }
 
 function formatListBlock(title: string, items: string[], maxItems = 6): string[] {
@@ -523,8 +626,11 @@ export function buildImportedStateContextBlock(parsed: ParsedContinuityImport | 
   if (hasKnownValue(parsed.projectType)) {
     lines.push(`Project type: ${parsed.projectType}`);
   }
+  if (hasKnownValue(parsed.fileType)) {
+    lines.push(`Memory file type: ${parsed.fileType}`);
+  }
   if (hasKnownValue(parsed.sourceAi)) {
-    lines.push(`Source AI: ${parsed.sourceAi}`);
+    lines.push(`Source: ${parsed.sourceAi}`);
   }
   if (hasKnownValue(parsed.currentObjective)) {
     lines.push(`Current objective: ${limitString(parsed.currentObjective, 500)}`);
@@ -549,6 +655,11 @@ export function buildImportedStateContextBlock(parsed: ParsedContinuityImport | 
       `Important context for next AI:\n${limitString(parsed.importantContextForNextAi, 900)}`,
     );
   }
+  if (hasKnownValue(parsed.recentConversationExcerpts)) {
+    lines.push(
+      `Recent useful excerpts:\n${limitString(parsed.recentConversationExcerpts, 900)}`,
+    );
+  }
 
   const block = lines.join("\n\n").trim();
   return block || null;
@@ -560,8 +671,9 @@ export function buildImportedStateContextPackSections(
   if (!parsed) return [];
 
   const sections: string[] = [
-    "## Project State",
-    `Source AI: ${parsed.sourceAi}`,
+    "## Markdown Memory / Project State",
+    `File type: ${parsed.fileType}`,
+    `Source: ${parsed.sourceAi}`,
     `Project name: ${parsed.projectName}`,
     `Project type: ${parsed.projectType}`,
     `Generated at: ${parsed.generatedAt}`,
@@ -598,8 +710,18 @@ export function buildImportedStateContextPackSections(
     sections.push("");
   }
 
+  if (hasKnownValue(parsed.recentConversationExcerpts)) {
+    sections.push("## Recent Useful Excerpts");
+    sections.push(limitString(parsed.recentConversationExcerpts, 1200));
+    sections.push("");
+  }
+
   if (parsed.risksWarnings.length > 0) {
     sections.push(...formatListBlock("## Risks / Warnings", parsed.risksWarnings, 5));
+  }
+
+  if (parsed.rulesForFutureAi.length > 0) {
+    sections.push(...formatListBlock("## Rules For Future AI", parsed.rulesForFutureAi, 5));
   }
 
   return sections.filter((section, index, all) => {
@@ -607,3 +729,8 @@ export function buildImportedStateContextPackSections(
     return all[index - 1] !== "";
   });
 }
+
+export {
+  ACCEPTED_CONTEXT_RECORD_TYPES,
+  GENERATED_RECORD_TYPE,
+};

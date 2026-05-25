@@ -750,3 +750,45 @@ Let users capture project state from any current AI chat as a portable Continuit
 - Raw imported state is preserved locally for audit, while canonical chat history remains append-only
 - Live UI validation is still required for third-party AI copy/paste flow and a real Ollama session
 
+---
+
+## 2026-05-25 — Markdown Memory System v1
+
+### Goal
+
+Implement a markdown-first memory system so all files to and from AI chats use `.md` as the primary portable format, with visible reviewable memory records stored in SQLite and included in future Context Packs.
+
+### Implementation
+
+- Formalized a shared markdown schema with `# CONTINUITYOS MEMORY FILE`, `file_type`, and consistent project-state sections while keeping legacy `# CONTINUITYOS IMPORT FILE` compatibility
+- Expanded the import flow into a broader `Markdown Memory Files` panel that now:
+  - copies a markdown-first prompt for any AI
+  - previews pasted markdown before apply
+  - supports update current workspace / create new workspace / checkpoint-only
+  - exports:
+    - `project-state.md`
+    - `ai-handoff.md`
+    - `thread-summary.md`
+  - shows a visible `Memory / Project State` review area using saved `continuity_records`
+- Added a markdown export service that builds ContinuityOS-authored `.md` files from local workspace state, current thread context, and the latest imported memory record
+- Stored generated markdown memory alongside imported memory in `continuity_records` so the latest visible project-state record can be reviewed later without touching canonical messages
+- Updated Universal Context Pack output to use `## Markdown Memory / Project State` and include rules/recent useful excerpts when they exist
+- Refreshed product copy so the workspace header, manual continuation panel, prompt text, and timeline labels all match the markdown-memory model
+- Added automated coverage for:
+  - new markdown header / metadata parsing
+  - legacy import-file compatibility
+  - markdown export generation and review-record persistence
+  - context-pack enrichment under the new section name
+
+### Verification
+
+- Targeted tests: PASS
+- Final full `npm test`: PASS (`35` files / `185` tests)
+- Final full `npm run build`: PASS
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- This is a visible/user-controlled markdown memory foundation, not the hidden background memory architecture from `memory-system.md`
+- ChromaDB/vector retrieval, user profiling, and autonomous background agents remain deferred
+

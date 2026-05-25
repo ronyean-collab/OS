@@ -87,6 +87,40 @@ export function assertContinuityImportApplyInput(value: unknown): {
   };
 }
 
+export function assertMarkdownMemoryExportInput(value: unknown): {
+  workspaceId: string;
+  threadId?: string;
+  fileType:
+    | "continuity-import"
+    | "continuity-export"
+    | "ai-handoff"
+    | "thread-summary"
+    | "project-state";
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid markdown memory export input.");
+  }
+  const o = value as Record<string, unknown>;
+  const fileType = typeof o.fileType === "string" ? o.fileType.trim() : "";
+  if (
+    fileType !== "continuity-import" &&
+    fileType !== "continuity-export" &&
+    fileType !== "ai-handoff" &&
+    fileType !== "thread-summary" &&
+    fileType !== "project-state"
+  ) {
+    throw new Error("Invalid markdown memory file type.");
+  }
+  return {
+    workspaceId: assertNonEmptyString(o.workspaceId, "workspaceId"),
+    threadId:
+      typeof o.threadId === "string" && o.threadId.trim()
+        ? assertThreadId(o.threadId)
+        : undefined,
+    fileType,
+  };
+}
+
 export function assertManualExchangeSaveInput(value: unknown): {
   workspaceId: string;
   threadId: string;

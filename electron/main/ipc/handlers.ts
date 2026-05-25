@@ -53,8 +53,10 @@ import {
 } from "../services/context-pack-service";
 import {
   applyContinuityImportFile,
+  listMarkdownMemoryRecords,
   previewContinuityImportFile,
 } from "../services/continuity-import-file";
+import { exportMarkdownMemoryFile } from "../services/markdown-memory-service";
 import { getLocalAiStatus } from "../services/local-ai-service";
 import {
   buildOrphanRepairPreview,
@@ -64,9 +66,10 @@ import {
 import {
   assertContinuityImportApplyInput,
   assertContinuityImportPreviewInput,
-  assertManualAssistantResponseSaveInput,
   assertContextPackBuildInput,
+  assertManualAssistantResponseSaveInput,
   assertManualExchangeSaveInput,
+  assertMarkdownMemoryExportInput,
   assertNonEmptyString,
   assertSendMessageInput,
   assertStreamId,
@@ -329,6 +332,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CONTINUITY_IMPORT_APPLY, (_e, input: unknown) => {
     const db = requireDb();
     return applyContinuityImportFile(db, assertContinuityImportApplyInput(input));
+  });
+
+  ipcMain.handle(IPC.MARKDOWN_MEMORY_EXPORT, (_e, input: unknown) => {
+    const db = requireDb();
+    return exportMarkdownMemoryFile(db, assertMarkdownMemoryExportInput(input));
+  });
+
+  ipcMain.handle(IPC.MARKDOWN_MEMORY_LIST, (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    return listMarkdownMemoryRecords(db, assertNonEmptyString(workspaceId, "workspaceId"));
   });
 
   ipcMain.handle(IPC.MANUAL_EXCHANGE_SAVE, (_e, input: unknown) => {

@@ -222,6 +222,18 @@ Continuity import file workflow and local AI foundation (2026-05-25):
 - Implemented an Ollama adapter with no API key requirement, using the existing provider/runtime path
 - Local AI remains optional; if Ollama is unavailable, local-save/manual fallback still remains the safe continuation path
 
+Markdown Memory System v1 (2026-05-25):
+- Standardized a shared `# CONTINUITYOS MEMORY FILE` schema with `file_type` and markdown-first project-state sections
+- Kept legacy `# CONTINUITYOS IMPORT FILE` imports working so existing flows do not break
+- Expanded Project tools with a `Markdown Memory Files` panel for:
+  - any-AI prompt copy
+  - markdown preview/apply
+  - `.md` export for project state, AI handoff, and thread summary
+  - visible Memory / Project State review
+- Saved generated markdown memory records in `continuity_records` so review remains local and inspectable
+- Updated Context Packs to use `## Markdown Memory / Project State` and include rules/recent useful excerpts when present
+- Preserved the local-first/manual-first boundaries: no vector DB, no hidden user profile, no autonomous background memory agent
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -234,6 +246,7 @@ FIXES APPLIED THIS SESSION
 - Added a portable AI-chat import workflow with preview/apply and raw-source preservation
 - Enriched Context Pack generation with imported project state
 - Added optional Ollama-based Local AI tools and runtime support without reintroducing an API-key gate
+- Added markdown-first memory import/export/review so ContinuityOS can hand state to and from any AI as `.md`
 
 ================================================================================
 UNRESOLVED RISKS
@@ -246,6 +259,7 @@ UNRESOLVED RISKS
 - Chat-like local fallback guidance still needs live visual confirmation in the packaged renderer
 - Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
 - Continuity import file UI still needs live copy/paste verification against a real external AI chat
+- Markdown export/review UI still needs live verification in a real Electron window
 - Local AI tools still need live verification with a real Ollama server/model on this machine
 - Token-aware truncation still not implemented
 
@@ -253,7 +267,7 @@ UNRESOLVED RISKS
 RECOMMENDED NEXT PHASE
 ================================================================================
 1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q, R, S
-2. Use the new import prompt in a real ChatGPT/Claude/Gemini session and verify preview/apply end to end
+2. Use the markdown-memory import/export flow end to end with a real ChatGPT/Claude/Gemini session
 3. Start a real Ollama server/model locally and verify detection, test, and saved assistant replies
 4. Future small win: token-aware applyContextTruncation (no architecture change)
 

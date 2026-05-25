@@ -30,6 +30,7 @@ type Props = {
   timelineGroups: TimelineGroup[];
   snapshots: SnapshotRecord[];
   workspaceId: string | null;
+  threadId: string | null;
   recoveryMode: boolean;
   exporting: boolean;
   providerPanel: ProviderSetupPanelProps | null;
@@ -65,6 +66,7 @@ export function OpsSidebar({
   timelineGroups,
   snapshots,
   workspaceId,
+  threadId,
   recoveryMode,
   exporting,
   providerPanel,
@@ -88,6 +90,7 @@ export function OpsSidebar({
       <>
         <ContinuityImportPanel
           workspaceId={workspaceId}
+          threadId={threadId}
           disabled={recoveryMode}
           onImported={onContinuityImported}
         />

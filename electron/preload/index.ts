@@ -7,6 +7,9 @@ import type {
   DiagnosticsReport,
   ContinuityImportApplyResult,
   ContinuityImportPreview,
+  MarkdownMemoryExportResult,
+  MarkdownMemoryFileType,
+  MarkdownMemoryRecordSummary,
   Message,
   ManualAssistantResponseSaveResult,
   ManualExchangeSaveResult,
@@ -139,6 +142,16 @@ const api = {
     workspaceId?: string;
   }): Promise<ContinuityImportApplyResult> =>
     ipcRenderer.invoke(IPC.CONTINUITY_IMPORT_APPLY, input),
+
+  exportMarkdownMemory: (input: {
+    workspaceId: string;
+    threadId?: string;
+    fileType: MarkdownMemoryFileType;
+  }): Promise<MarkdownMemoryExportResult> =>
+    ipcRenderer.invoke(IPC.MARKDOWN_MEMORY_EXPORT, input),
+
+  listMarkdownMemoryRecords: (workspaceId: string): Promise<MarkdownMemoryRecordSummary[]> =>
+    ipcRenderer.invoke(IPC.MARKDOWN_MEMORY_LIST, workspaceId),
 
   saveManualExchange: (input: {
     workspaceId: string;

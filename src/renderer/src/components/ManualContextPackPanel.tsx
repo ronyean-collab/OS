@@ -168,7 +168,7 @@ export function ManualContextPackPanel({
           </p>
           <p className="muted small">
             Need to bring state back from an existing AI chat? Open Project tools and use
-            Create import file from current AI chat.
+            Markdown Memory Files.
           </p>
         </div>
         <button

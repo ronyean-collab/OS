@@ -10,6 +10,8 @@ export const IPC = {
   CONTEXT_PACK_BUILD: "context-pack:build",
   CONTINUITY_IMPORT_PREVIEW: "continuity-import:preview",
   CONTINUITY_IMPORT_APPLY: "continuity-import:apply",
+  MARKDOWN_MEMORY_EXPORT: "markdown-memory:export",
+  MARKDOWN_MEMORY_LIST: "markdown-memory:list",
   MANUAL_EXCHANGE_SAVE: "manual-exchange:save",
   MANUAL_ASSISTANT_RESPONSE_SAVE: "manual-assistant-response:save",
   THREAD_LIST: "thread:list",

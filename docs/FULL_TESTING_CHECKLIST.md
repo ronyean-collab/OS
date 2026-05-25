@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 35 files / 183 tests | ☐ | |
+| H1 | `npm test` — 35 files / 185 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -252,20 +252,24 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
-## R. Continuity import file workflow
+## R. Markdown Memory Files
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| R1 | Project tools shows “Create import file from current AI chat” instructions | ☐ | |
-| R2 | Copy import prompt works and mentions any AI, not only ChatGPT | ☐ | |
-| R3 | Pasting a valid ContinuityOS Import File shows preview before import | ☐ | |
-| R4 | Preview includes project name/type, objective, summary, counts, source AI, generated date | ☐ | |
+| R1 | Project tools shows `Markdown Memory Files` section | ☐ | |
+| R2 | Copy import prompt works and says any AI, not only ChatGPT | ☐ | Automated: `continuity-import-file.test.ts` |
+| R3 | Pasting a valid markdown memory file shows preview before import | ☐ | Automated: `continuity-import-file.test.ts` |
+| R4 | Preview includes file type, source, project name/type, objective, summary, counts, and generated date | ☐ | |
 | R5 | Update current workspace applies imported state without deleting messages | ☐ | Automated: `continuity-import-file.test.ts` |
 | R6 | Create new workspace import works | ☐ | Automated: `continuity-import-file.test.ts` |
 | R7 | Checkpoint-only import stores the file without overwriting continuity summary | ☐ | |
-| R8 | Raw import source is preserved safely for audit | ☐ | Automated: `continuity-import-file.test.ts` |
-| R9 | Timeline shows `continuity_import_file_applied` after confirm | ☐ | Automated: `continuity-import-file.test.ts` |
-| R10 | New Context Pack includes imported project state sections | ☐ | Automated: `continuity-import-file.test.ts` |
+| R8 | Raw markdown source is preserved safely for audit/review | ☐ | Automated: `continuity-import-file.test.ts` |
+| R9 | Export Project State (`.md`) works without a provider | ☐ | Automated: `continuity-import-file.test.ts` |
+| R10 | Export AI Handoff (`.md`) works without a provider | ☐ | Automated: `continuity-import-file.test.ts` |
+| R11 | Export Thread Summary (`.md`) works when a thread is active | ☐ | |
+| R12 | Memory / Project State review area shows recent records and key saved fields | ☐ | |
+| R13 | Timeline shows `continuity_import_file_applied` after confirm | ☐ | Automated: `continuity-import-file.test.ts` |
+| R14 | New Context Pack includes `Markdown Memory / Project State` plus decisions/issues/next steps | ☐ | Automated: `continuity-import-file.test.ts` |
 
 ---
 
@@ -300,6 +304,7 @@ npx vitest run tests/provider-multi.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/thread-sidebar-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts tests/manual-fallback-copy.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
+npx vitest run tests/continuity-import-file.test.ts tests/context-assembly.test.ts tests/manual-context-pack.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts
 npx vitest run tests/v12-restore-lane.test.ts
 npx vitest run tests/stream-runtime.test.ts

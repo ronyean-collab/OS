@@ -28,7 +28,7 @@ const HUMAN_LABELS: Record<TimelineEventType, string> = {
   workspace_import_started: "Import started",
   workspace_import_completed: "Import completed",
   workspace_import_failed: "Import failed",
-  continuity_import_file_applied: "AI chat state imported",
+  continuity_import_file_applied: "Markdown memory imported",
   manual_context_pack_created: "Context pack created",
   manual_ai_response_saved: "Manual AI response saved",
 };

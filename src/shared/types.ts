@@ -414,13 +414,22 @@ export type ImportExecutionResult = {
   workspace?: Workspace;
 };
 
+export type MarkdownMemoryFileType =
+  | "continuity-import"
+  | "continuity-export"
+  | "ai-handoff"
+  | "thread-summary"
+  | "project-state";
+
 export type ContinuityImportMode =
   | "update-current"
   | "create-workspace"
   | "checkpoint-only";
 
-export type ContinuityImportPreview = {
+export type MarkdownMemoryPreview = {
   valid: boolean;
+  fileType: MarkdownMemoryFileType;
+  source: string;
   version: number | null;
   sourceAi: string;
   generatedAt: string;
@@ -442,6 +451,8 @@ export type ContinuityImportPreview = {
   errors: string[];
 };
 
+export type ContinuityImportPreview = MarkdownMemoryPreview;
+
 export type ContinuityImportApplyResult = {
   ok: boolean;
   message: string;
@@ -449,6 +460,30 @@ export type ContinuityImportApplyResult = {
   workspace: Workspace | null;
   sourceAi: string;
   projectName: string;
+};
+
+export type MarkdownMemoryRecordSummary = {
+  id: string;
+  workspaceId: string;
+  fileType: MarkdownMemoryFileType;
+  source: string;
+  sourceAi: string;
+  title: string;
+  projectName: string;
+  currentObjective: string;
+  continuitySummary: string;
+  decisionsMade: string[];
+  openIssues: string[];
+  nextSteps: string[];
+  createdAt: string;
+  rawMarkdown: string;
+};
+
+export type MarkdownMemoryExportResult = {
+  fileType: MarkdownMemoryFileType;
+  fileName: string;
+  markdown: string;
+  preview: MarkdownMemoryPreview;
 };
 
 export type LocalAiStatus = {

@@ -950,6 +950,7 @@ export function App() {
             timelineGroups={timelineGroups}
             snapshots={snapshots}
             workspaceId={workspace?.id ?? null}
+            threadId={activeThread?.id ?? null}
             recoveryMode={appState?.recoveryMode ?? false}
             exporting={exporting}
             providerPanel={providerPanelProps}
