@@ -48,6 +48,7 @@ export async function getLocalAiStatus(
   try {
     const models = await listOllamaModels(baseUrl);
     return {
+      state: models.length > 0 ? "ollama_ready" : "ollama_detected_no_model",
       detected: true,
       baseUrl,
       models,
@@ -57,16 +58,22 @@ export async function getLocalAiStatus(
         models.length > 0
           ? "Local AI is ready. ContinuityOS can answer using your selected local model."
           : "Ollama is reachable, but no local models were listed yet. Run `ollama pull <model>` first.",
+      error: null,
     };
-  } catch {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Ollama is unavailable.";
     return {
+      state: /HTTP|returned/i.test(errorMessage) ? "ollama_error" : "ollama_not_detected",
       detected: false,
       baseUrl,
       models: [],
       selected,
       selectedModel,
       message:
-        "Local AI is not running yet. Install/start Ollama or continue with Manual Mode.",
+        /HTTP|returned/i.test(errorMessage)
+          ? "Ollama responded with an error. Retry, verify the base URL, or continue with a Context Pack."
+          : "Local AI is not running yet. Install/start Ollama or continue with Manual Mode.",
+      error: errorMessage,
     };
   }
 }

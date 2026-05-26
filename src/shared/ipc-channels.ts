@@ -32,6 +32,8 @@ export const IPC = {
   PROVIDER_TEST_CONNECTION: "provider:test-connection",
   PROVIDER_REMOVE_KEY: "provider:remove-key",
   LOCAL_AI_STATUS: "local-ai:status",
+  EMBEDDED_LOCAL_AI_STATUS: "embedded-local-ai:status",
+  MEMORY_COMPRESSION_PREVIEW: "memory-compression:preview",
   APP_OPEN_EXTERNAL: "app:open-external",
   SECURE_HAS_KEY: "secure:has-key",
   SECURE_SET_KEY: "secure:set-key",

@@ -19,7 +19,7 @@ describe("chat workflows", () => {
     });
   });
 
-  it("routes backup, context pack, memory review, local ai, and paste response intents", () => {
+  it("routes backup, context pack, memory review, local ai, paste response, and memory update intents", () => {
     expect(routeChatIntent("backup my workspace")).toEqual({
       kind: "workflow",
       workflow: "backup_export",
@@ -39,6 +39,10 @@ describe("chat workflows", () => {
     expect(routeChatIntent("save response")).toEqual({
       kind: "workflow",
       workflow: "paste_ai_response",
+    });
+    expect(routeChatIntent("create memory update")).toEqual({
+      kind: "workflow",
+      workflow: "create_memory_update",
     });
   });
 

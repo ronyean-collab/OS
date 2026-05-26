@@ -224,7 +224,8 @@ export function ProviderSetupPanel({
   return (
     <div className="provider-setup-panel" data-testid="provider-setup-panel">
       <p className="muted small">
-        Provider setup is optional. Manual Mode works without any API key.
+        Cloud provider setup is advanced and optional. Local AI and Manual Mode both work without
+        any API key.
       </p>
       <p className="muted small">
         Workspace <span className="mono">{workspaceId.slice(0, 8)}…</span> —{" "}

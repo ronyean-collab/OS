@@ -21,8 +21,8 @@ export function WorkspaceHeader({
         <p className="eyebrow">ContinuityOS</p>
         <h1>{workspace?.name ?? "No workspace"}</h1>
         <p className="muted small workspace-header-subtitle">
-          Chat normally. ContinuityOS saves your work, guides your next step, and helps any AI
-          continue from your project memory.
+          Chat normally. ContinuityOS saves your work locally, keeps compressed memory visible, and
+          helps any AI continue from your project state.
         </p>
         {providerBadge && providerRuntimeReady && (
           <p className="muted small workspace-header-status">

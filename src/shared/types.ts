@@ -486,13 +486,87 @@ export type MarkdownMemoryExportResult = {
   preview: MarkdownMemoryPreview;
 };
 
+export type LocalAiState =
+  | "ollama_not_detected"
+  | "ollama_detected_no_model"
+  | "ollama_ready"
+  | "ollama_error";
+
 export type LocalAiStatus = {
+  state: LocalAiState;
   detected: boolean;
   baseUrl: string;
   models: string[];
   selected: boolean;
   selectedModel: string | null;
   message: string;
+  error: string | null;
+};
+
+export type AiEngineType =
+  | "embedded-local"
+  | "ollama-external"
+  | "cloud-provider"
+  | "manual-context-pack"
+  | "continuity-guide";
+
+export type EmbeddedLocalLlmState =
+  | "not_configured"
+  | "model_missing"
+  | "model_available"
+  | "loading"
+  | "ready"
+  | "error";
+
+export type EmbeddedLocalModelTier = "small_fast" | "recommended" | "higher_quality";
+
+export type EmbeddedLocalModelProfile = {
+  id: string;
+  displayName: string;
+  fileName: string;
+  localPath: string;
+  sizeBytes: number;
+  quantization: string;
+  recommendedRamGb: number;
+  installed: boolean;
+  sourceUrl: string | null;
+  tier: EmbeddedLocalModelTier;
+};
+
+export type EmbeddedLocalLlmStatus = {
+  engineType: "embedded-local";
+  state: EmbeddedLocalLlmState;
+  modelDirectory: string;
+  selectedModelId: string | null;
+  selectedModelPath: string | null;
+  installedModelCount: number;
+  models: EmbeddedLocalModelProfile[];
+  message: string;
+  availableForDirectChat: boolean;
+  error: string | null;
+};
+
+export type EmbeddedLocalLlmGenerateResult = {
+  ok: boolean;
+  status: "NOT_READY" | "MODEL_MISSING" | "ERROR";
+  content: string | null;
+  model: string | null;
+  message: string;
+};
+
+export type MemoryCompressionLevel =
+  | "raw_messages"
+  | "thread_summary"
+  | "project_state"
+  | "workspace_memory";
+
+export type MemoryCompressionDraft = {
+  markdown: string;
+  preview: ContinuityImportPreview;
+  levels: MemoryCompressionLevel[];
+  sourceMessageCount: number;
+  sourceTimelineEventCount: number;
+  latestRecordTitle: string | null;
 };
 
 export type TimelineGroup = {

@@ -59,6 +59,8 @@ import {
 } from "../services/continuity-import-file";
 import { exportMarkdownMemoryFile } from "../services/markdown-memory-service";
 import { getLocalAiStatus } from "../services/local-ai-service";
+import { getEmbeddedLocalLlmStatus } from "../services/embedded-local-llm-service";
+import { buildMemoryCompressionDraft } from "../services/memory-compression-service";
 import {
   buildOrphanRepairPreview,
   executeAttachOrphansToRecoveredThread,
@@ -729,6 +731,25 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.LOCAL_AI_STATUS, async (_e, workspaceId: unknown) => {
     const db = requireDb();
     return getLocalAiStatus(db, assertNonEmptyString(workspaceId, "workspaceId"));
+  });
+
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_STATUS, () => {
+    return getEmbeddedLocalLlmStatus();
+  });
+
+  ipcMain.handle(IPC.MEMORY_COMPRESSION_PREVIEW, (_e, input: unknown) => {
+    const db = requireDb();
+    if (!input || typeof input !== "object") {
+      throw new Error("Invalid memory compression input.");
+    }
+    const payload = input as { workspaceId?: unknown; threadId?: unknown };
+    return buildMemoryCompressionDraft(db, {
+      workspaceId: assertNonEmptyString(payload.workspaceId, "workspaceId"),
+      threadId:
+        typeof payload.threadId === "string" && payload.threadId.trim()
+          ? assertThreadId(payload.threadId)
+          : null,
+    });
   });
 
   ipcMain.handle(

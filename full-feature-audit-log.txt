@@ -321,3 +321,55 @@ RECOMMENDED NEXT PHASE
 
 ================================================================================
 END OF AUDIT LOG
+================================================================================
+
+ADDENDUM — 2026-05-26 LOCAL AI SHELL AND MEMORY COMPRESSION SCAFFOLD
+================================================================================
+
+Goal:
+- Prepare ContinuityOS for tomorrow testing as a local-first AI chat shell with:
+  - conversational local guidance for normal no-engine questions
+  - Ollama-first chat setup guidance
+  - Built-in Local AI scaffold visibility
+  - deterministic markdown memory-update previews
+
+What changed:
+- Added renderer conversational-shell classification/helper for help, next-step,
+  no-response, memory, and general-question prompts.
+- Updated App send flow so no-engine questions save locally and surface an
+  honest ContinuityOS Guide card instead of a provider/setup error.
+- Added in-chat `Create Memory Update` workflow with preview/copy/apply actions.
+- Added main-process `memory-compression-service.ts` for deterministic
+  project-state markdown draft generation.
+- Added main-process `embedded-local-llm-service.ts` scaffold for future local
+  bundled models (status, metadata, directory concept, safe NOT_READY paths).
+- Added preload / IPC methods for embedded-local status and memory-compression
+  preview.
+- Expanded in-chat Local AI workflow to include Built-in Local AI scaffold copy
+  plus Ollama status/model controls.
+- Added model-file ignore patterns to `.gitignore`.
+
+Automated verification:
+- Targeted vitest:
+  conversational-shell / embedded-local-llm / memory-compression /
+  local-ai / stream-runtime / chat-workflows / manual-context-pack /
+  continuity-import-file / onboarding-flow
+  => PASS (9 files / 51 tests)
+- Full npm test:
+  => PASS (40 files / 210 tests)
+- npm run build:
+  => PASS
+
+Manual verification:
+- Not performed in this addendum session.
+- Tomorrow focus:
+  1. normal guide replies (`can you help me`, `what do I do next`)
+  2. no-engine explanation (`why are you not answering`)
+  3. in-chat Local AI / Built-in Local AI scaffold visibility
+  4. memory update preview/copy/apply
+  5. post-apply Context Pack continuation
+
+Risks still open:
+- Real Ollama interaction not manually verified in UI
+- Built-in Local AI remains scaffold-only, not active direct generation
+- Renderer behavior visually unverified in this headless session

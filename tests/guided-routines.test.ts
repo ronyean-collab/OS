@@ -41,7 +41,7 @@ describe("guided routines", () => {
     const card = getResponseSavedGuidance();
     const labels = card.actions.map((action) => action.label);
 
-    expect(card.body).toContain("update the project memory");
+    expect(card.body).toContain("compressed markdown memory update");
     expect(labels).toContain("Create Memory Update");
     expect(labels).toContain("Export Backup");
     expect(labels).toContain("Continue Chatting");

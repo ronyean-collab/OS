@@ -7,9 +7,11 @@ import type {
   DiagnosticsReport,
   ContinuityImportApplyResult,
   ContinuityImportPreview,
+  EmbeddedLocalLlmStatus,
   MarkdownMemoryExportResult,
   MarkdownMemoryFileType,
   MarkdownMemoryRecordSummary,
+  MemoryCompressionDraft,
   Message,
   ManualAssistantResponseSaveResult,
   ManualExchangeSaveResult,
@@ -360,6 +362,15 @@ const api = {
 
   getLocalAiStatus: (workspaceId: string): Promise<LocalAiStatus> =>
     ipcRenderer.invoke(IPC.LOCAL_AI_STATUS, workspaceId),
+
+  getEmbeddedLocalAiStatus: (): Promise<EmbeddedLocalLlmStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_STATUS),
+
+  previewMemoryCompression: (input: {
+    workspaceId: string;
+    threadId?: string | null;
+  }): Promise<MemoryCompressionDraft> =>
+    ipcRenderer.invoke(IPC.MEMORY_COMPRESSION_PREVIEW, input),
 
   openExternalUrl: (url: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.APP_OPEN_EXTERNAL, url),

@@ -883,3 +883,62 @@ Make the chat behave like an interactive ContinuityOS guide so users can import 
 - Explicit workflow commands can now be saved as normal local user messages without pretending an AI answered them
 - Project tools remain available, but basic flows now work directly in chat
 
+---
+
+## 2026-05-26 — Local AI shell and memory compression scaffold
+
+### Goal
+
+Prepare ContinuityOS for tomorrow testing as a local-first AI chat shell with richer local guide replies, Ollama-first chat guidance, Built-in Local AI scaffolding, and a visible markdown memory-update flow.
+
+### Implementation
+
+- Added a pure renderer `conversational-shell` helper so saved no-engine messages can return honest `ContinuityOS Guide` responses for:
+  - help
+  - next-step prompts
+  - no-response / why-not-answering prompts
+  - memory questions
+  - general project questions
+- Updated the main send path so:
+  - explicit workflow commands still save locally and open in-chat workflows
+  - no-engine normal questions save locally and immediately show a local guide card instead of falling into a provider/setup error
+  - no fake assistant/model message is written for guide-only responses
+- Added a deterministic `memory-compression-service` that builds a reviewable `project-state` markdown memory update from:
+  - workspace continuity summary
+  - latest applied markdown memory
+  - recent timeline events
+  - recent saved thread messages
+- Added a new in-chat `Create Memory Update` workflow with:
+  - visible memory levels
+  - markdown preview
+  - copy action
+  - apply current workspace / checkpoint / create workspace actions
+- Added an `embedded-local-llm-service` scaffold with:
+  - local model directory concept
+  - recommended model metadata
+  - installed-model detection
+  - safe `MODEL_MISSING` / `NOT_READY` generate results
+  - no model download or bundling
+- Exposed new preload / IPC methods for:
+  - Built-in Local AI status
+  - memory compression preview
+- Expanded the in-chat Local AI workflow to show:
+  - Ollama state and model selection
+  - Built-in Local AI scaffold status and model folder path
+  - clear “use Ollama for now” / Context Pack fallback copy
+- Added `.gitignore` protections for local model files (`models/`, `*.gguf`, `*.safetensors`, `*.bin`)
+- Updated checklist/docs for tomorrow’s manual pass
+
+### Verification
+
+- Targeted tests: PASS
+- Full `npm test`: PASS (`40` files / `210` tests)
+- Full `npm run build`: PASS
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- Direct in-app model answers are still only real model output; local guide cards remain renderer-only guidance
+- Built-in Local AI is scaffolded for future embedded runtime support, but not wired for direct generation in this build
+- Manual UI verification is still required tomorrow for real Ollama interaction and live renderer behavior
+

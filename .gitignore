@@ -24,3 +24,7 @@ _dev-verify-err.txt
 _audit-dev-out.txt
 _audit-dev-err.txt
 *.log
+models/
+*.gguf
+*.safetensors
+*.bin

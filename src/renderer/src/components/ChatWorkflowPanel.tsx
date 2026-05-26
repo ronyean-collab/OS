@@ -3,10 +3,12 @@ import type {
   ContinuityImportApplyResult,
   ContinuityImportMode,
   ContinuityImportPreview,
+  EmbeddedLocalLlmStatus,
   LocalAiStatus,
   MarkdownMemoryExportResult,
   MarkdownMemoryFileType,
   MarkdownMemoryRecordSummary,
+  MemoryCompressionDraft,
   Message,
   UniversalContextPackResult,
 } from "@shared/types";
@@ -57,7 +59,12 @@ type Props = {
   onContextPackCopied: () => void;
   onManualResponseSaved: () => void;
   onRefreshLocalAiStatus: () => Promise<LocalAiStatus | null>;
-  onUseLocalAi: (input: { model: string; baseUrl: string }) => Promise<void>;
+  onRefreshEmbeddedLocalAiStatus: () => Promise<EmbeddedLocalLlmStatus | null>;
+  onPreviewMemoryCompression: () => Promise<MemoryCompressionDraft>;
+  onUseLocalAi: (input: {
+    model: string;
+    baseUrl: string;
+  }) => Promise<LocalAiStatus | null>;
 };
 
 const TARGET_OPTIONS = ["Any AI", "ChatGPT", "Claude", "Gemini", "OpenRouter", "Ollama"];
@@ -92,6 +99,8 @@ export function ChatWorkflowPanel({
   onContextPackCopied,
   onManualResponseSaved,
   onRefreshLocalAiStatus,
+  onRefreshEmbeddedLocalAiStatus,
+  onPreviewMemoryCompression,
   onUseLocalAi,
 }: Props) {
   if (!workflow || workflow.kind === "none") {
@@ -114,9 +123,12 @@ export function ChatWorkflowPanel({
   const [memoryRecord, setMemoryRecord] = useState<MarkdownMemoryRecordSummary | null>(null);
   const [memoryPreview, setMemoryPreview] = useState<ContinuityImportPreview | null>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryDraft, setMemoryDraft] = useState<MemoryCompressionDraft | null>(null);
 
   const [localAiStatus, setLocalAiStatus] = useState<LocalAiStatus | null>(null);
   const [localAiModel, setLocalAiModel] = useState("");
+  const [embeddedLocalAiStatus, setEmbeddedLocalAiStatus] =
+    useState<EmbeddedLocalLlmStatus | null>(null);
   const pasteResponseRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -147,9 +159,14 @@ export function ChatWorkflowPanel({
       setMemoryLoading(false);
     }
 
+    if (workflow.kind !== "create_memory_update") {
+      setMemoryDraft(null);
+    }
+
     if (workflow.kind !== "setup_local_ai") {
       setLocalAiStatus(null);
       setLocalAiModel("");
+      setEmbeddedLocalAiStatus(null);
     }
 
     setTargetPlatform(workflow.targetPlatform || "Any AI");
@@ -195,6 +212,15 @@ export function ChatWorkflowPanel({
     }
 
     void refreshLocalAi();
+    void refreshEmbeddedLocalAi();
+  }, [workflow.kind, workflowTick]);
+
+  useEffect(() => {
+    if (workflow.kind !== "create_memory_update") {
+      return;
+    }
+
+    void previewMemoryCompression();
   }, [workflow.kind, workflowTick]);
 
   const activeRequest = useMemo(() => {
@@ -217,6 +243,36 @@ export function ChatWorkflowPanel({
     } catch (error) {
       setWorkflowError(
         error instanceof Error ? error.message : "Could not refresh Local AI status.",
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }
+
+  async function refreshEmbeddedLocalAi() {
+    setWorkflowError(null);
+    try {
+      const next = await onRefreshEmbeddedLocalAiStatus();
+      setEmbeddedLocalAiStatus(next);
+    } catch (error) {
+      setWorkflowError(
+        error instanceof Error ? error.message : "Could not load Built-in Local AI status.",
+      );
+    }
+  }
+
+  async function previewMemoryCompression() {
+    setBusyLabel("Creating memory update...");
+    setWorkflowError(null);
+    try {
+      const draft = await onPreviewMemoryCompression();
+      setMemoryDraft(draft);
+      setWorkflowStatus(
+        "Memory update preview ready. Review the markdown below before copying or applying anything.",
+      );
+    } catch (error) {
+      setWorkflowError(
+        error instanceof Error ? error.message : "Could not build the memory update preview.",
       );
     } finally {
       setBusyLabel(null);
@@ -371,6 +427,34 @@ export function ChatWorkflowPanel({
     } catch (error) {
       setWorkflowError(
         error instanceof Error ? error.message : "Could not save the pasted AI response.",
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }
+
+  async function handleCopyMemoryUpdate() {
+    if (!memoryDraft) return;
+    setWorkflowError(null);
+    try {
+      await navigator.clipboard.writeText(memoryDraft.markdown);
+      setWorkflowStatus("Memory update copied. Save it as a .md file, or apply it here.");
+    } catch (error) {
+      setWorkflowError(
+        error instanceof Error ? error.message : "Could not copy the memory update markdown.",
+      );
+    }
+  }
+
+  async function handleApplyMemoryUpdate(mode: ContinuityImportMode) {
+    if (!memoryDraft?.markdown?.trim()) return;
+    setBusyLabel("Applying memory update...");
+    setWorkflowError(null);
+    try {
+      await onApplyContinuityImport({ text: memoryDraft.markdown, mode });
+    } catch (error) {
+      setWorkflowError(
+        error instanceof Error ? error.message : "Could not apply the memory update.",
       );
     } finally {
       setBusyLabel(null);
@@ -636,6 +720,15 @@ export function ChatWorkflowPanel({
 
       {workflow.kind === "review_memory" && (
         <div className="chat-workflow-stack">
+          <section className="chat-workflow-preview">
+            <h4>Visible memory levels</h4>
+            <ul className="chat-workflow-list">
+              <li>raw_messages</li>
+              <li>thread_summary</li>
+              <li>project_state</li>
+              <li>workspace_memory</li>
+            </ul>
+          </section>
           {memoryLoading ? (
             <p className="muted small">Loading saved project memory...</p>
           ) : memoryPreview ? (
@@ -750,6 +843,102 @@ export function ChatWorkflowPanel({
         </div>
       )}
 
+      {workflow.kind === "create_memory_update" && (
+        <div className="chat-workflow-stack">
+          <section className="chat-workflow-preview">
+            <h4>Memory levels</h4>
+            <ul className="chat-workflow-list">
+              {(memoryDraft?.levels ?? []).map((level) => (
+                <li key={level}>{level}</li>
+              ))}
+            </ul>
+            <p className="muted small">
+              Raw messages stay intact. This draft compresses the latest visible state into a
+              reviewable markdown project-state file.
+            </p>
+            <p className="muted small">
+              Source messages: {memoryDraft?.sourceMessageCount ?? 0} · timeline events:{" "}
+              {memoryDraft?.sourceTimelineEventCount ?? 0}
+              {memoryDraft?.latestRecordTitle
+                ? ` · latest saved memory: ${memoryDraft.latestRecordTitle}`
+                : ""}
+            </p>
+          </section>
+          {memoryDraft?.preview ? (
+            <section className="chat-workflow-preview">
+              <h4>Draft summary</h4>
+              <dl className="continuity-import-stats">
+                <dt>Current objective</dt>
+                <dd>{memoryDraft.preview.currentObjective}</dd>
+                <dt>Continuity summary</dt>
+                <dd>{memoryDraft.preview.continuitySummary}</dd>
+                <dt>Stable facts</dt>
+                <dd>{memoryDraft.preview.stableFacts.length}</dd>
+                <dt>Decisions</dt>
+                <dd>{memoryDraft.preview.decisionsMade.length}</dd>
+                <dt>Open issues</dt>
+                <dd>{memoryDraft.preview.openIssues.length}</dd>
+                <dt>Next steps</dt>
+                <dd>{memoryDraft.preview.nextSteps.length}</dd>
+              </dl>
+            </section>
+          ) : (
+            <p className="muted small">
+              {busyLabel === "Creating memory update..."
+                ? "Creating a deterministic memory update preview..."
+                : "Create a preview to inspect the markdown memory update."}
+            </p>
+          )}
+          {memoryDraft?.markdown && (
+            <label className="chat-workflow-field">
+              <span>Markdown memory update</span>
+              <textarea readOnly rows={14} value={memoryDraft.markdown} />
+            </label>
+          )}
+          <div className="chat-workflow-actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={disabled || busyLabel != null}
+              onClick={() => void previewMemoryCompression()}
+            >
+              {busyLabel === "Creating memory update..." ? "Creating..." : "Refresh Preview"}
+            </button>
+            <button
+              type="button"
+              disabled={disabled || !memoryDraft?.markdown?.trim()}
+              onClick={() => void handleCopyMemoryUpdate()}
+            >
+              Copy Memory Update
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={disabled || !memoryDraft?.markdown?.trim() || !workspaceId}
+              onClick={() => void handleApplyMemoryUpdate("update-current")}
+            >
+              Apply to Current Workspace
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={disabled || !memoryDraft?.markdown?.trim() || !workspaceId}
+              onClick={() => void handleApplyMemoryUpdate("checkpoint-only")}
+            >
+              Save as Checkpoint Only
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={disabled || !memoryDraft?.markdown?.trim()}
+              onClick={() => void handleApplyMemoryUpdate("create-workspace")}
+            >
+              Create New Workspace
+            </button>
+          </div>
+        </div>
+      )}
+
       {workflow.kind === "setup_local_ai" && (
         <div className="chat-workflow-stack">
           <section className="chat-workflow-preview">
@@ -768,6 +957,48 @@ export function ChatWorkflowPanel({
               {localAiStatus?.message ??
                 "I can check whether Ollama is running and whether any local models are available."}
             </p>
+          </section>
+          <section className="chat-workflow-preview">
+            <h4>Built-in Local AI</h4>
+            <dl className="continuity-import-stats">
+              <dt>Status</dt>
+              <dd>{embeddedLocalAiStatus?.state ?? "not_configured"}</dd>
+              <dt>Installed models</dt>
+              <dd>{embeddedLocalAiStatus?.installedModelCount ?? 0}</dd>
+              <dt>Model folder</dt>
+              <dd>{embeddedLocalAiStatus?.modelDirectory ?? "UNKNOWN"}</dd>
+              <dt>Selected model</dt>
+              <dd>{embeddedLocalAiStatus?.selectedModelId ?? "None yet"}</dd>
+            </dl>
+            <p className="muted small">
+              {embeddedLocalAiStatus?.message ??
+                "ContinuityOS is designed to answer locally. Models live on your computer, and your project memory stays local."}
+            </p>
+            <p className="muted small">
+              Choose-file support is intentionally deferred in this build. Use Ollama for now, or
+              keep a local model ready for a future embedded release.
+            </p>
+            <div className="chat-workflow-actions">
+              <button type="button" className="secondary" disabled>
+                Choose Local Model File
+              </button>
+              <button type="button" className="secondary" disabled>
+                Show Model Folder
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setWorkflowStatus(
+                    localAiStatus?.detected
+                      ? "Ollama is the active local AI path in this build."
+                      : "Built-in Local AI is scaffolded, but Ollama is still the working local path today.",
+                  )
+                }
+              >
+                Use Ollama Instead
+              </button>
+            </div>
           </section>
           {localAiStatus?.models?.length ? (
             <label className="chat-workflow-field">
@@ -821,6 +1052,19 @@ export function ChatWorkflowPanel({
               onClick={() => onOpenProjectTools("local-ai")}
             >
               Open Local AI Tools
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={disabled || busyLabel != null}
+              onClick={() =>
+                onOpenWorkflow("continue_any_ai", {
+                  sourceUserMessageId: workflow.sourceUserMessageId,
+                  requestText: requestTextHint,
+                })
+              }
+            >
+              Continue with Context Pack
             </button>
             <button type="button" className="secondary small-btn" onClick={onClose}>
               Continue with Manual Mode

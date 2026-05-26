@@ -9,6 +9,7 @@ export type ChatWorkflowType =
   | "paste_ai_response"
   | "review_memory"
   | "backup_export"
+  | "create_memory_update"
   | "setup_local_ai";
 
 export type ActiveChatWorkflow = Exclude<ChatWorkflowType, "none">;
@@ -118,6 +119,18 @@ export function routeChatIntent(
     ])
   ) {
     return { kind: "workflow", workflow: "review_memory" };
+  }
+
+  if (
+    hasAnyPhrase(normalized, [
+      "update memory",
+      "create memory update",
+      "make a memory update",
+      "compress memory",
+      "compress this chat",
+    ])
+  ) {
+    return { kind: "workflow", workflow: "create_memory_update" };
   }
 
   if (
@@ -254,6 +267,12 @@ export function getChatWorkflowDefinition(kind: ActiveChatWorkflow): ChatWorkflo
         title: "Back Up / Export",
         prompt:
           "I can help you export a markdown backup right here, or you can open the full backup tools for the larger workspace export.",
+      };
+    case "create_memory_update":
+      return {
+        title: "Create Memory Update",
+        prompt:
+          "I can compress the latest local conversation into a reviewable markdown project-state file before anything is applied.",
       };
     case "setup_local_ai":
       return {

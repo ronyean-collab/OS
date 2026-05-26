@@ -122,9 +122,9 @@ export function getWorkspaceGuidance(context: GuidanceContext = {}): GuidanceCar
   return {
     state: "welcome",
     title: "Hi, I'm your ContinuityOS guide.",
-    body: `I can help you import memory, continue this project in any AI, review what the workspace knows, back it up, or set up Local AI.${localAiNote}`,
+    body: `Ask me anything about this project. I save the conversation locally, help you import memory, continue in any AI, review what the workspace knows, create compressed memory updates, back it up, or set up Local AI.${localAiNote}`,
     footer:
-      "Chat normally. ContinuityOS saves your work locally, explains the next step, and helps any AI continue from your project memory.",
+      "Chat normally. ContinuityOS saves your work locally, keeps visible markdown memory, explains the next step, and helps any AI continue from your project memory.",
     actions: getNextStepActions("welcome"),
   };
 }
@@ -177,9 +177,9 @@ export function getResponseSavedGuidance(): GuidanceCard {
     state: "response_saved",
     title: "Response saved.",
     body:
-      "Saved. Want to update the project memory so future chats remember this progress, or keep chatting from here?",
+      "Saved. Want to create a compressed markdown memory update so future chats remember this progress, or keep chatting from here?",
     footer:
-      "If you do not need a memory update yet, you can keep chatting normally and create one later from Project tools.",
+      "If you do not need a memory update yet, you can keep chatting normally and create one later from chat or Project tools.",
     actions: getNextStepActions("response_saved"),
   };
 }

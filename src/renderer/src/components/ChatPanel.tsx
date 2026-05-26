@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type {
   ContinuityImportApplyResult,
+  EmbeddedLocalLlmStatus,
   LocalAiStatus,
+  MemoryCompressionDraft,
   Message,
   Thread,
   UniversalContextPackResult,
@@ -66,7 +68,12 @@ type Props = {
   onContextPackCopied: () => void;
   onManualResponseSaved: () => void;
   onRefreshLocalAiStatus: () => Promise<LocalAiStatus | null>;
-  onUseLocalAi: (input: { model: string; baseUrl: string }) => Promise<void>;
+  onRefreshEmbeddedLocalAiStatus: () => Promise<EmbeddedLocalLlmStatus | null>;
+  onPreviewMemoryCompression: () => Promise<MemoryCompressionDraft>;
+  onUseLocalAi: (input: {
+    model: string;
+    baseUrl: string;
+  }) => Promise<LocalAiStatus | null>;
   disabled: boolean;
 };
 
@@ -104,6 +111,8 @@ export function ChatPanel({
   onContextPackCopied,
   onManualResponseSaved,
   onRefreshLocalAiStatus,
+  onRefreshEmbeddedLocalAiStatus,
+  onPreviewMemoryCompression,
   onUseLocalAi,
   disabled,
 }: Props) {
@@ -383,6 +392,8 @@ export function ChatPanel({
             onContextPackCopied={onContextPackCopied}
             onManualResponseSaved={onManualResponseSaved}
             onRefreshLocalAiStatus={onRefreshLocalAiStatus}
+            onRefreshEmbeddedLocalAiStatus={onRefreshEmbeddedLocalAiStatus}
+            onPreviewMemoryCompression={onPreviewMemoryCompression}
             onUseLocalAi={onUseLocalAi}
           />
         )}
@@ -422,7 +433,8 @@ export function ChatPanel({
           </button>
         )}
         <p className="muted small composer-manual-hint">
-          Send saves your message locally. ContinuityOS will guide you to an AI response path if no provider or Local AI is connected.
+          Send saves your message locally. If no local engine is active, ContinuityOS will guide
+          you to Ollama, Built-in Local AI, or a Context Pack fallback.
         </p>
       </form>
       {showManualContextPack && (

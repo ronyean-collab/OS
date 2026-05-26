@@ -26,7 +26,7 @@ Use this checklist for product-readiness and release verification.
 | B1 | First-run onboarding shows welcome + provider choices | ☐ | |
 | B2 | OpenAI setup saves key to secure storage only | ☐ | |
 | B3 | Invalid API key shows calm error (no crash) | ☐ | |
-| B4 | No-provider mode: chat explains provider required | ☐ | |
+| B4 | No-engine mode: chat saves locally and explains Local AI / Context Pack fallback calmly | ☐ | |
 | B5 | Setup-only providers do not crash chat | ☐ | |
 | B6 | API keys never in SQLite `provider_configs` plaintext | ☐ | Inspect DB |
 | B7 | API keys never in diagnostics export | ☐ | Search bundle for `sk-` |
@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 37 files / 198 tests | ☐ | |
+| H1 | `npm test` — 40 files / 210 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -287,6 +287,7 @@ Use this checklist for product-readiness and release verification.
 | S8 | Imported state and continuity summary are included before local AI call | ☐ | Automated: `local-ai.test.ts` |
 | S9 | If Ollama is unavailable, Manual Mode fallback still works calmly | ☐ | Requires live UI validation |
 | S10 | Local AI remains optional and does not block startup or normal manual chat | ☐ | |
+| S11 | In-chat `local ai` flow shows Built-in Local AI scaffold with model-folder status and no bundled model requirement | ☐ | |
 
 ---
 
@@ -305,10 +306,11 @@ Use this checklist for product-readiness and release verification.
 | T9 | Typing `paste response` or `save response` opens the in-chat pasted-response workflow | ☐ | |
 | T10 | Saving a pasted AI response shows response-saved guidance with memory-update / continue / backup actions | ☐ | |
 | T11 | Typing `what do you know` or `review memory` shows an in-chat memory review card without inventing missing facts | ☐ | |
-| T12 | Typing `backup` or `export` shows in-chat backup/export guidance with markdown export actions | ☐ | |
-| T13 | Typing `local ai` or `ollama` shows in-chat Local AI guidance and detection controls | ☐ | |
-| T14 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
-| T15 | Project tools stays optional for basic chat-driven workflows | ☐ | |
+| T12 | Typing `update memory` or `create memory update` shows an in-chat memory compression preview with copy/apply actions | ☐ | |
+| T13 | Typing `backup` or `export` shows in-chat backup/export guidance with markdown export actions | ☐ | |
+| T14 | Typing `local ai` or `ollama` shows in-chat Local AI guidance, Ollama detection controls, and Built-in Local AI scaffold copy | ☐ | |
+| T15 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
+| T16 | Project tools stays optional for basic chat-driven workflows | ☐ | |
 
 ### T Manual Flow
 
@@ -319,9 +321,45 @@ Use this checklist for product-readiness and release verification.
 - Paste an AI response in chat, save it, and confirm the assistant response is appended once.
 - Type `backup` and confirm in-chat backup guidance appears.
 - Type `what do you know` and confirm the in-chat memory review card appears.
+- Type `update memory` and confirm the in-chat memory update preview appears.
+- Copy or apply the memory update and confirm future Context Packs still use it.
 - Type `local ai` and confirm the in-chat Local AI guidance appears.
+- Confirm the Built-in Local AI scaffold appears without downloading or bundling a model.
 - Confirm Project tools remain optional for these flows.
 - Confirm no provider gate appears.
+
+---
+
+## U. Tomorrow Manual Pass
+
+1. Launch the app.
+2. Confirm the window renders and the normal chat composer is visible.
+3. Type `can you help me`.
+4. Confirm ContinuityOS Guide replies with local-first help options.
+5. Type `what do I do next`.
+6. Confirm next-step guidance appears with Local AI / Context Pack / Memory actions.
+7. Type `why are you not answering`.
+8. Confirm the guide explains Ollama / Built-in Local AI / Context Pack without pretending a model answered.
+9. Type `local ai`.
+10. Confirm the in-chat Ollama flow appears and the Built-in Local AI scaffold is visible.
+11. If Ollama is not running, confirm the unavailable state stays calm.
+12. Start Ollama manually.
+13. Pull/select a model manually if needed.
+14. Click Detect Ollama, then Refresh Models.
+15. Select a model and use Local AI.
+16. Send a normal project question.
+17. Confirm the assistant response saves into the thread.
+18. Type `update memory`.
+19. Confirm the memory update preview appears in chat.
+20. Copy or apply the memory update.
+21. Type `what do you know`.
+22. Confirm compressed memory review appears with objective/summary/decisions/issues/next steps.
+23. Type `continue in any ai`.
+24. Confirm Context Pack fallback still works.
+25. Type `backup`.
+26. Confirm markdown export / backup guidance appears.
+27. Confirm provider setup never blocks the chat.
+28. Confirm no renderer crash or blank window appears.
 
 ---
 
@@ -342,6 +380,7 @@ npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts te
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts tests/manual-fallback-copy.test.ts
 npx vitest run tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/chat-workflows.test.ts tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
+npx vitest run tests/conversational-shell.test.ts tests/embedded-local-llm.test.ts tests/memory-compression.test.ts tests/local-ai.test.ts tests/stream-runtime.test.ts tests/chat-workflows.test.ts tests/manual-context-pack.test.ts tests/continuity-import-file.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/context-assembly.test.ts tests/manual-context-pack.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts

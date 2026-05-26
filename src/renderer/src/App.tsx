@@ -3,6 +3,7 @@ import type {
   AppState,
   AutosaveStatus,
   ContinuityImportApplyResult,
+  EmbeddedLocalLlmStatus,
   ImportPreview,
   LocalAiStatus,
   Message,
@@ -39,6 +40,7 @@ import {
 import {
   resolveGuidanceCard,
   transitionGuidanceState,
+  type GuidanceCard,
   type GuidanceActionId,
   type GuidanceState,
 } from "./guided-routines";
@@ -49,6 +51,7 @@ import {
   type ActiveChatWorkflow,
   type ChatWorkflowSession,
 } from "./chat-workflows";
+import { buildConversationalShellCard } from "./conversational-shell";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -129,7 +132,12 @@ export function App() {
     createChatWorkflowSession("none"),
   );
   const [chatWorkflowTick, setChatWorkflowTick] = useState(0);
-  const [localAiDetected, setLocalAiDetected] = useState<boolean | null>(null);
+  const [localAiStatus, setLocalAiStatus] = useState<LocalAiStatus | null>(null);
+  const [embeddedLocalAiStatus, setEmbeddedLocalAiStatus] =
+    useState<EmbeddedLocalLlmStatus | null>(null);
+  const [conversationalGuideCard, setConversationalGuideCard] = useState<GuidanceCard | null>(
+    null,
+  );
   const [opsFocusTarget, setOpsFocusTarget] = useState<OpsFocusTarget | null>(null);
   const [opsFocusTick, setOpsFocusTick] = useState(0);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -191,15 +199,21 @@ export function App() {
     async (workspaceId?: string | null): Promise<LocalAiStatus | null> => {
       const nextWorkspaceId = workspaceId ?? workspace?.id ?? null;
       if (!nextWorkspaceId) {
-        setLocalAiDetected(null);
+        setLocalAiStatus(null);
         return null;
       }
       const status = await continuity.getLocalAiStatus(nextWorkspaceId).catch(() => null);
-      setLocalAiDetected(status?.detected ?? null);
+      setLocalAiStatus(status);
       return status;
     },
     [workspace?.id],
   );
+
+  const refreshEmbeddedLocalAiStatus = useCallback(async (): Promise<EmbeddedLocalLlmStatus | null> => {
+    const status = await continuity.getEmbeddedLocalAiStatus().catch(() => null);
+    setEmbeddedLocalAiStatus(status);
+    return status;
+  }, []);
 
   const openProjectToolsFromChat = useCallback(
     (target: OpsFocusTarget) => {
@@ -291,16 +305,20 @@ export function App() {
       setSnapshots([]);
       setProviderConfig(null);
       setManualFallback(null);
-      setLocalAiDetected(null);
+      setLocalAiStatus(null);
+      setEmbeddedLocalAiStatus(null);
+      setConversationalGuideCard(null);
       closeChatWorkflow();
       return;
     }
-    const [config, localAiStatus] = await Promise.all([
+    const [config, nextLocalAiStatus, nextEmbeddedLocalAiStatus] = await Promise.all([
       continuity.getProviderConfig(ws.id),
       continuity.getLocalAiStatus(ws.id).catch(() => null),
+      continuity.getEmbeddedLocalAiStatus().catch(() => null),
     ]);
     setProviderConfig(config);
-    setLocalAiDetected(localAiStatus?.detected ?? null);
+    setLocalAiStatus(nextLocalAiStatus);
+    setEmbeddedLocalAiStatus(nextEmbeddedLocalAiStatus);
     await refreshOpsPanels(ws.id);
 
     const repair = await continuity.repairActiveThread(ws.id);
@@ -318,6 +336,7 @@ export function App() {
       setOldestMessageCursor(null);
     }
     updateGuidance("welcome");
+    setConversationalGuideCard(null);
     closeChatWorkflow();
   }, [closeChatWorkflow, refreshOpsPanels, loadThreadMessages, reloadThreads, updateGuidance]);
 
@@ -415,6 +434,7 @@ export function App() {
         latestSentUserMessageIdRef.current = null;
         setStreamError(null);
         setManualFallback(null);
+        setConversationalGuideCard(null);
         updateGuidance("welcome");
         closeChatWorkflow();
         if (workspace) void refreshOpsPanels(workspace.id);
@@ -441,6 +461,7 @@ export function App() {
           if (fallback) {
             setManualFallback(fallback);
             setStreamError(null);
+            setConversationalGuideCard(null);
             updateGuidance(
               transitionGuidanceState(guidanceState, "message_saved_without_provider"),
             );
@@ -451,10 +472,12 @@ export function App() {
           } else {
             setStreamError(event.error);
             setManualFallback(null);
+            setConversationalGuideCard(null);
           }
         } else {
           setStreamError(null);
           setManualFallback(null);
+          setConversationalGuideCard(null);
         }
         latestSentUserMessageIdRef.current = null;
         if (workspace) void refreshOpsPanels(workspace.id);
@@ -485,6 +508,7 @@ export function App() {
     setMessages([]);
     setManualFallback(null);
     updateGuidance("welcome");
+    setConversationalGuideCard(null);
     closeChatWorkflow();
     await refreshOpsPanels(workspace.id);
   };
@@ -499,6 +523,7 @@ export function App() {
       setStreamError(null);
       setManualFallback((prev) => (prev?.threadId === thread.id ? prev : null));
       updateGuidance("welcome");
+      setConversationalGuideCard(null);
       closeChatWorkflow();
     } finally {
       setThreadSwitching(false);
@@ -589,10 +614,11 @@ export function App() {
     const localRoute = routeChatIntent(content, guidanceState);
     setStreamError(null);
     setManualFallback(null);
+    setConversationalGuideCard(null);
     updateGuidance("welcome");
     closeChatWorkflow();
 
-    if (localRoute.kind !== "none") {
+    const saveLocalMessage = async () => {
       const savedMessage = await continuity.saveLocalUserMessage({
         threadId: activeThread.id,
         content,
@@ -610,8 +636,20 @@ export function App() {
         await reloadThreads(workspace.id);
         await refreshOpsPanels(workspace.id);
       }
+      return savedMessage;
+    };
+
+    if (localRoute.kind !== "none") {
+      const savedMessage = await saveLocalMessage();
       if (localRoute.kind === "guidance") {
-        updateGuidance(guidanceState);
+        setConversationalGuideCard(
+          buildConversationalShellCard({
+            message: content,
+            guidanceState,
+            localAiDetected: localAiStatus?.detected ?? null,
+            workspaceName: workspace?.name ?? null,
+          }),
+        );
         return;
       }
       const requestText =
@@ -624,6 +662,20 @@ export function App() {
         sourceUserMessageId: savedMessage.id,
         requestText,
       });
+      return;
+    }
+
+    if (!providerSendEnabled) {
+      await saveLocalMessage();
+      updateGuidance(transitionGuidanceState(guidanceState, "message_saved_without_provider"));
+      setConversationalGuideCard(
+        buildConversationalShellCard({
+          message: content,
+          guidanceState,
+          localAiDetected: localAiStatus?.detected ?? null,
+          workspaceName: workspace?.name ?? null,
+        }),
+      );
       return;
     }
 
@@ -775,6 +827,7 @@ export function App() {
       if (status?.detected) {
         updateGuidance("local_ai_available");
       }
+      setConversationalGuideCard(null);
       return status;
     },
     [handleSaveProvider, refreshLocalAiStatus, updateGuidance, workspace],
@@ -827,6 +880,7 @@ export function App() {
 
   const handleContinuityImported = async (result: ContinuityImportApplyResult) => {
     setExportMessage(result.message);
+    setConversationalGuideCard(null);
     updateGuidance(
       transitionGuidanceState(guidanceState, "memory_imported"),
       result.sourceAi || null,
@@ -1042,12 +1096,14 @@ export function App() {
 
   const guidanceCard = resolveGuidanceCard(guidanceState, {
     importedSource: guidanceImportedSource,
-    localAiDetected,
+    localAiDetected: localAiStatus?.detected ?? null,
     providerReady: providerSendEnabled,
   });
+  const activeGuidanceCard = conversationalGuideCard ?? guidanceCard;
 
   const handleGuideAction = useCallback(
     (action: GuidanceActionId) => {
+      setConversationalGuideCard(null);
       if (action === "import_memory") {
         openChatWorkflow("import_memory");
         return;
@@ -1062,10 +1118,7 @@ export function App() {
         return;
       }
       if (action === "create_memory_update") {
-        openChatWorkflow("backup_export", {
-          note:
-            "Export a fresh markdown memory file here if you want future chats to remember this progress.",
-        });
+        openChatWorkflow("create_memory_update");
         return;
       }
       if (action === "set_up_local_ai") {
@@ -1209,7 +1262,7 @@ export function App() {
           onBuildContextPack={handleBuildContextPack}
           onSaveManualAssistantResponse={handleSaveManualAssistantResponse}
           onCancelStream={handleCancelStream}
-          guidanceCard={guidanceCard}
+          guidanceCard={activeGuidanceCard}
           guidanceTick={guidanceTick}
           chatWorkflow={chatWorkflow}
           chatWorkflowTick={chatWorkflowTick}
@@ -1226,6 +1279,13 @@ export function App() {
             updateGuidance(transitionGuidanceState(guidanceState, "manual_response_saved"))
           }
           onRefreshLocalAiStatus={() => refreshLocalAiStatus(workspace?.id)}
+          onRefreshEmbeddedLocalAiStatus={refreshEmbeddedLocalAiStatus}
+          onPreviewMemoryCompression={() =>
+            continuity.previewMemoryCompression({
+              workspaceId: workspace?.id ?? "",
+              threadId: activeThread?.id ?? null,
+            })
+          }
           onUseLocalAi={handleUseLocalAi}
           disabled={appState?.recoveryMode ?? false}
         />
