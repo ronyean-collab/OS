@@ -18,6 +18,12 @@ import type {
 } from "@shared/types";
 
 export type OpsTabId = "overview" | "timeline" | "snapshots" | "provider";
+export type OpsFocusTarget =
+  | "import-memory"
+  | "review-memory"
+  | "backup-export"
+  | "memory-update"
+  | "local-ai";
 
 type Props = {
   activeTab: OpsTabId;
@@ -46,6 +52,8 @@ type Props = {
   continuitySummary: string | null;
   onSaveContinuitySummary: (summary: string) => Promise<void>;
   onContinuityImported: (result: ContinuityImportApplyResult) => Promise<void>;
+  focusTarget: OpsFocusTarget | null;
+  focusTick: number;
 };
 
 const TABS: { id: OpsTabId; label: string }[] = [
@@ -82,6 +90,8 @@ export function OpsSidebar({
   continuitySummary,
   onSaveContinuitySummary,
   onContinuityImported,
+  focusTarget,
+  focusTick,
 }: Props) {
   let panel: ReactNode = null;
 
@@ -93,6 +103,8 @@ export function OpsSidebar({
           threadId={threadId}
           disabled={recoveryMode}
           onImported={onContinuityImported}
+          focusTarget={focusTarget}
+          focusTick={focusTick}
         />
         <ContinuitySummaryPanel
           workspaceId={workspaceId}
@@ -127,6 +139,7 @@ export function OpsSidebar({
       <ProviderSetupPanel
         key={providerPanel.initialProviderId ?? providerPanel.initial?.provider ?? "openai"}
         {...providerPanel}
+        focusLocalAiSignal={focusTarget === "local-ai" ? focusTick : 0}
       />
     );
   }
@@ -138,6 +151,10 @@ export function OpsSidebar({
           <h2>Project tools</h2>
           <p className="muted small">
             Manual Mode is the default. Provider setup and recovery tools are optional.
+          </p>
+          <p className="muted small">
+            Context Pack = what you paste into another AI so it can continue from your
+            ContinuityOS memory.
           </p>
         </div>
         <button type="button" className="secondary small-btn" onClick={onClose}>

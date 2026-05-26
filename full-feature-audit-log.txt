@@ -234,6 +234,23 @@ Markdown Memory System v1 (2026-05-25):
 - Updated Context Packs to use `## Markdown Memory / Project State` and include rules/recent useful excerpts when present
 - Preserved the local-first/manual-first boundaries: no vector DB, no hidden user profile, no autonomous background memory agent
 
+Guided continuity routine (2026-05-25):
+- Added a renderer-only `ContinuityOS Guide` state model so the chat can guide users without fabricating AI output
+- Welcome guide now explains the chat purpose and offers clear next actions:
+  - Continue in Any AI
+  - Import Memory
+  - Review Project Memory
+  - Back Up / Export
+  - Set Up Local AI
+- Post-import guidance now points directly to Context Pack as the next step and keeps the chat as the command center
+- Post-context-copy guidance now explains exactly where to paste the pack and where to paste the response back
+- Post-response-saved guidance now suggests memory update / continue / backup next steps
+- Guide actions can open or focus the right Project tools area for import, review, export, and Local AI setup
+- Manual context-pack UI now explains that it should be used after importing memory or sending a message
+- Chat copy now better explains local save behavior, no-provider behavior, and the role of Context Packs
+- Added focused helper tests for guided copy and state transitions
+- Made thread reconstruction order deterministic under timestamp ties to keep manual-response tests stable
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -247,6 +264,7 @@ FIXES APPLIED THIS SESSION
 - Enriched Context Pack generation with imported project state
 - Added optional Ollama-based Local AI tools and runtime support without reintroducing an API-key gate
 - Added markdown-first memory import/export/review so ContinuityOS can hand state to and from any AI as `.md`
+- Added a guided continuity routine so the main chat can act as the app's command center without requiring provider setup
 
 ================================================================================
 UNRESOLVED RISKS
@@ -261,12 +279,13 @@ UNRESOLVED RISKS
 - Continuity import file UI still needs live copy/paste verification against a real external AI chat
 - Markdown export/review UI still needs live verification in a real Electron window
 - Local AI tools still need live verification with a real Ollama server/model on this machine
+- Guided ContinuityOS Guide flow still needs live visual confirmation inside the Electron app window
 - Token-aware truncation still not implemented
 
 ================================================================================
 RECOMMENDED NEXT PHASE
 ================================================================================
-1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q, R, S
+1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q, R, S, T
 2. Use the markdown-memory import/export flow end to end with a real ChatGPT/Claude/Gemini session
 3. Start a real Ollama server/model locally and verify detection, test, and saved assistant replies
 4. Future small win: token-aware applyContextTruncation (no architecture change)

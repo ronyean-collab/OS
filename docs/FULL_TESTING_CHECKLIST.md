@@ -290,11 +290,30 @@ Use this checklist for product-readiness and release verification.
 
 ---
 
+## T. Guided continuity routine
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| T1 | Chat shows `ContinuityOS Guide` on workspace open | ☐ | |
+| T2 | Welcome guide offers Continue in Any AI / Import Memory / Review Project Memory / Back Up / Export / Set Up Local AI | ☐ | |
+| T3 | Import Memory guide action opens Project tools and the Markdown Memory import area | ☐ | |
+| T4 | After markdown memory import, guide says to copy a Context Pack next | ☐ | |
+| T5 | After import, Continue in Any AI / Context Pack area is obvious without requiring provider setup | ☐ | |
+| T6 | Copy Context Pack action leads to post-copy guidance explaining where to paste it | ☐ | |
+| T7 | Paste AI Response action focuses the pasted-response area when possible | ☐ | |
+| T8 | Saving a pasted AI response shows response-saved guidance with memory-update / continue / backup actions | ☐ | |
+| T9 | Review Project Memory / Back Up / Export / Set Up Local AI guide actions open the right Project tools area | ☐ | |
+| T10 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
+| T11 | Project tools stays collapsed by default until opened intentionally | ☐ | |
+
+---
+
 ## Automated test commands
 
 ```bash
 npm test
 npm run build
+npx vitest run tests/guided-routines.test.ts
 npx vitest run tests/context-assembly.test.ts
 npx vitest run tests/continuity-summary.test.ts
 npx vitest run tests/manual-context-pack.test.ts
@@ -303,6 +322,7 @@ npx vitest run tests/provider-setup.test.ts
 npx vitest run tests/provider-multi.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/thread-sidebar-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts tests/manual-fallback-copy.test.ts
+npx vitest run tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/context-assembly.test.ts tests/manual-context-pack.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts

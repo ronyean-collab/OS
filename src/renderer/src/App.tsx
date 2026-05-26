@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppState,
   AutosaveStatus,
@@ -19,7 +19,11 @@ import type {
 } from "@shared/types";
 import { ImportPreviewModal } from "./components/ImportPreviewModal";
 import { ChatPanel } from "./components/ChatPanel";
-import { OpsSidebar, type OpsTabId } from "./components/OpsSidebar";
+import {
+  OpsSidebar,
+  type OpsFocusTarget,
+  type OpsTabId,
+} from "./components/OpsSidebar";
 import { RecoveryBanner } from "./components/RecoveryBanner";
 import { ThreadSidebar } from "./components/ThreadSidebar";
 import { AppFooter } from "./components/AppFooter";
@@ -31,6 +35,12 @@ import {
   buildManualFallbackState,
   type ManualFallbackState,
 } from "./manual-fallback";
+import {
+  resolveGuidanceCard,
+  transitionGuidanceState,
+  type GuidanceActionId,
+  type GuidanceState,
+} from "./guided-routines";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -104,6 +114,12 @@ export function App() {
     json: string;
     fileName: string;
   } | null>(null);
+  const [guidanceState, setGuidanceState] = useState<GuidanceState>("welcome");
+  const [guidanceTick, setGuidanceTick] = useState(0);
+  const [guidanceImportedSource, setGuidanceImportedSource] = useState<string | null>(null);
+  const [localAiDetected, setLocalAiDetected] = useState<boolean | null>(null);
+  const [opsFocusTarget, setOpsFocusTarget] = useState<OpsFocusTarget | null>(null);
+  const [opsFocusTick, setOpsFocusTick] = useState(0);
   const importInputRef = useRef<HTMLInputElement>(null);
   const encryptedImportInputRef = useRef<HTMLInputElement>(null);
   const activeStreamIdRef = useRef<string | null>(null);
@@ -115,6 +131,27 @@ export function App() {
     if (config.provider === "ollama") return true;
     return config.hasApiKey;
   };
+
+  const updateGuidance = useCallback(
+    (state: GuidanceState, importedSource?: string | null) => {
+      setGuidanceState(state);
+      setGuidanceTick((value) => value + 1);
+      if (importedSource !== undefined) {
+        setGuidanceImportedSource(importedSource);
+      }
+    },
+    [],
+  );
+
+  const focusProjectTools = useCallback(
+    (tab: OpsTabId, target: OpsFocusTarget) => {
+      setShowProjectTools(true);
+      setOpsTab(tab);
+      setOpsFocusTarget(target);
+      setOpsFocusTick((value) => value + 1);
+    },
+    [],
+  );
 
   const refreshAppState = useCallback(async () => {
     const state = await continuity.getAppState();
@@ -201,10 +238,15 @@ export function App() {
       setSnapshots([]);
       setProviderConfig(null);
       setManualFallback(null);
+      setLocalAiDetected(null);
       return;
     }
-    const [config] = await Promise.all([continuity.getProviderConfig(ws.id)]);
+    const [config, localAiStatus] = await Promise.all([
+      continuity.getProviderConfig(ws.id),
+      continuity.getLocalAiStatus(ws.id).catch(() => null),
+    ]);
     setProviderConfig(config);
+    setLocalAiDetected(localAiStatus?.detected ?? null);
     await refreshOpsPanels(ws.id);
 
     const repair = await continuity.repairActiveThread(ws.id);
@@ -221,7 +263,8 @@ export function App() {
       setHasMoreOlderMessages(false);
       setOldestMessageCursor(null);
     }
-  }, [refreshOpsPanels, loadThreadMessages, reloadThreads]);
+    updateGuidance("welcome");
+  }, [refreshOpsPanels, loadThreadMessages, reloadThreads, updateGuidance]);
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
@@ -306,6 +349,7 @@ export function App() {
         latestSentUserMessageIdRef.current = null;
         setStreamError(null);
         setManualFallback(null);
+        updateGuidance("welcome");
         if (workspace) void refreshOpsPanels(workspace.id);
       },
       onError: (event: StreamErrorEvent) => {
@@ -330,6 +374,9 @@ export function App() {
           if (fallback) {
             setManualFallback(fallback);
             setStreamError(null);
+            updateGuidance(
+              transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+            );
           } else {
             setStreamError(event.error);
             setManualFallback(null);
@@ -343,7 +390,7 @@ export function App() {
       },
     });
     return cleanup;
-  }, [activeThread, providerConfig, refreshOpsPanels, workspace]);
+  }, [activeThread, guidanceState, providerConfig, refreshOpsPanels, updateGuidance, workspace]);
 
   const handleCreateThread = async () => {
     if (!workspace) return;
@@ -356,6 +403,7 @@ export function App() {
     await continuity.setActiveThread(thread.id);
     setMessages([]);
     setManualFallback(null);
+    updateGuidance("welcome");
     await refreshOpsPanels(workspace.id);
   };
 
@@ -368,6 +416,7 @@ export function App() {
       await loadThreadMessages(thread.id);
       setStreamError(null);
       setManualFallback((prev) => (prev?.threadId === thread.id ? prev : null));
+      updateGuidance("welcome");
     } finally {
       setThreadSwitching(false);
     }
@@ -456,6 +505,7 @@ export function App() {
     if (!activeThread || streaming) return;
     setStreamError(null);
     setManualFallback(null);
+    updateGuidance("welcome");
 
     const result = await continuity.startMessageStream({
       threadId: activeThread.id,
@@ -484,6 +534,9 @@ export function App() {
       });
       if (fallback) {
         setManualFallback(fallback);
+        updateGuidance(
+          transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+        );
       } else {
         setStreamError(result.error);
       }
@@ -502,6 +555,9 @@ export function App() {
       });
       if (fallback) {
         setManualFallback(fallback);
+        updateGuidance(
+          transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+        );
       }
       if (workspace) await refreshOpsPanels(workspace.id);
     }
@@ -628,9 +684,15 @@ export function App() {
 
   const handleContinuityImported = async (result: ContinuityImportApplyResult) => {
     setExportMessage(result.message);
+    updateGuidance(
+      transitionGuidanceState(guidanceState, "memory_imported"),
+      result.sourceAi || null,
+    );
+    setShowProjectTools(false);
     if (result.workspace) {
       await continuity.setActiveWorkspace(result.workspace.id);
       await loadWorkspace(result.workspace);
+      updateGuidance("memory_imported", result.sourceAi || null);
       return;
     }
     if (workspace) {
@@ -809,6 +871,59 @@ export function App() {
         }
       : null;
 
+  const guidanceCard = resolveGuidanceCard(guidanceState, {
+    importedSource: guidanceImportedSource,
+    localAiDetected,
+    providerReady: providerSendEnabled,
+  });
+
+  const contextPackRequestHint = useMemo(() => {
+    const latestUser = [...messages]
+      .reverse()
+      .find((message) => message.role === "user" && message.content.trim().length > 0);
+    if (latestUser) {
+      return latestUser.content.trim();
+    }
+    const summaryLine = workspace?.continuitySummary?.trim().split(/\n+/)[0]?.trim();
+    if (summaryLine) {
+      return summaryLine;
+    }
+    if (guidanceImportedSource) {
+      return `Continue this project using the latest ContinuityOS memory imported from ${guidanceImportedSource}.`;
+    }
+    return "Continue this project from the latest saved ContinuityOS memory.";
+  }, [guidanceImportedSource, messages, workspace?.continuitySummary]);
+
+  const handleGuideAction = useCallback(
+    (action: GuidanceActionId) => {
+      if (action === "import_memory") {
+        focusProjectTools("overview", "import-memory");
+        return;
+      }
+      if (action === "review_project_memory") {
+        focusProjectTools("overview", "review-memory");
+        return;
+      }
+      if (action === "backup_export") {
+        focusProjectTools("overview", "backup-export");
+        updateGuidance(transitionGuidanceState(guidanceState, "backup_recommended"));
+        return;
+      }
+      if (action === "create_memory_update") {
+        focusProjectTools("overview", "memory-update");
+        return;
+      }
+      if (action === "set_up_local_ai") {
+        focusProjectTools("provider", "local-ai");
+        return;
+      }
+      if (action === "continue_any_ai") {
+        updateGuidance(transitionGuidanceState(guidanceState, "message_saved_without_provider"));
+      }
+    },
+    [focusProjectTools, guidanceState, updateGuidance],
+  );
+
   if (loading) {
     const phaseLabel =
       startupPhase === "migrating"
@@ -936,6 +1051,16 @@ export function App() {
           onBuildContextPack={handleBuildContextPack}
           onSaveManualAssistantResponse={handleSaveManualAssistantResponse}
           onCancelStream={handleCancelStream}
+          guidanceCard={guidanceCard}
+          guidanceTick={guidanceTick}
+          contextPackRequestHint={contextPackRequestHint}
+          onGuideAction={handleGuideAction}
+          onContextPackCopied={() =>
+            updateGuidance(transitionGuidanceState(guidanceState, "context_pack_copied"))
+          }
+          onManualResponseSaved={() =>
+            updateGuidance(transitionGuidanceState(guidanceState, "manual_response_saved"))
+          }
           disabled={appState?.recoveryMode ?? false}
         />
         {showProjectTools && (
@@ -966,6 +1091,8 @@ export function App() {
             continuitySummary={workspace?.continuitySummary ?? null}
             onSaveContinuitySummary={handleSaveContinuitySummary}
             onContinuityImported={handleContinuityImported}
+            focusTarget={opsFocusTarget}
+            focusTick={opsFocusTick}
           />
         )}
       </div>

@@ -792,3 +792,45 @@ Implement a markdown-first memory system so all files to and from AI chats use `
 - This is a visible/user-controlled markdown memory foundation, not the hidden background memory architecture from `memory-system.md`
 - ChromaDB/vector retrieval, user profiling, and autonomous background agents remain deferred
 
+---
+
+## 2026-05-25 — Guided continuity routine
+
+### Goal
+
+Make the chat feel like a guided ContinuityOS assistant by explaining what to do after import, making Context Packs easy to find, and guiding the user through import, continue-in-any-AI, pasted response, memory update, and backup flows.
+
+### Implementation
+
+- Added a renderer-only `ContinuityOS Guide` routine model with welcome, post-import, post-context-copy, response-saved, backup, and Local AI guidance states
+- Upgraded the chat panel into a guided command center:
+  - welcome guidance now explains what the chat is for
+  - guide actions can open the right Project tools area
+  - context-pack copy/paste steps are explained without faking AI output
+  - response-saved guidance now suggests memory update / continue / backup
+- Made `Continue in Any AI` easier to find:
+  - clearer subtitle and explanation in the manual context-pack panel
+  - guide buttons for copy/show/paste flows
+  - post-import guidance points directly to Context Pack as the next step
+- Added lightweight focus/highlight flows for:
+  - import memory
+  - review project memory
+  - backup/export
+  - local AI setup
+- Clarified chat purpose in the workspace header, empty state, and composer helper copy
+- Added pure helper coverage for guided routine copy and state transitions
+- Tightened thread reconstruction ordering to remove a timestamp-tie flake seen in manual-response tests
+
+### Verification
+
+- Targeted tests: PASS
+- Final full `npm test`: PASS (`36` files / `192` tests)
+- Final full `npm run build`: PASS
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- Guidance cards are renderer-only and are not saved as fake assistant messages
+- Provider setup remains optional; normal local-first chat and manual continuation still work
+- Live visual inspection is still required to mark the new guide flow as manually verified
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   LocalAiStatus,
   ProviderConfig,
@@ -16,6 +16,7 @@ export type ProviderSetupPanelProps = {
   workspaceId: string;
   initial: ProviderConfig | null;
   initialProviderId?: string;
+  focusLocalAiSignal?: number;
   onSave: (
     provider: string,
     model: string,
@@ -40,6 +41,7 @@ export function ProviderSetupPanel({
   workspaceId,
   initial,
   initialProviderId,
+  focusLocalAiSignal = 0,
   onSave,
   onTest,
   onRemoveKey,
@@ -72,6 +74,8 @@ export function ProviderSetupPanel({
   const [secureDiag, setSecureDiag] = useState<SecureStorageDiagnostics | null>(null);
   const [localAiStatus, setLocalAiStatus] = useState<LocalAiStatus | null>(null);
   const [loadingLocalAi, setLoadingLocalAi] = useState(false);
+  const [highlightLocalAi, setHighlightLocalAi] = useState(false);
+  const localAiPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!window.continuity?.getSecureStorageDiagnostics) return;
@@ -101,6 +105,14 @@ export function ProviderSetupPanel({
   useEffect(() => {
     void refreshLocalAi();
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!focusLocalAiSignal) return;
+    localAiPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setHighlightLocalAi(true);
+    const timer = window.setTimeout(() => setHighlightLocalAi(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [focusLocalAiSignal]);
 
   useEffect(() => {
     const next = getProviderDefinition(provider);
@@ -221,7 +233,11 @@ export function ProviderSetupPanel({
         </span>
       </p>
 
-      <section className="local-ai-panel" aria-label="Local AI">
+      <section
+        ref={localAiPanelRef}
+        className={`local-ai-panel${highlightLocalAi ? " is-highlighted" : ""}`}
+        aria-label="Local AI"
+      >
         <div className="local-ai-panel-header">
           <div>
             <h3>Local AI</h3>

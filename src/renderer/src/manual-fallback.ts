@@ -15,7 +15,7 @@ export function getManualFallbackMessage(kind: ManualFallbackKind): string {
   if (kind === "provider-unavailable") {
     return "Message saved locally. Provider unavailable, but you can still continue in any AI with a Context Pack.";
   }
-  return "Message saved locally. No AI provider is connected, so ContinuityOS will help you continue this in any AI. Copy the Context Pack, paste it into ChatGPT, Claude, Gemini, or another AI, then paste the reply back here.";
+  return "Message saved locally. No AI provider is connected, so ContinuityOS will guide you through the next step. Copy the Context Pack, paste it into ChatGPT, Claude, Gemini, Ollama, or another AI, then paste the reply back here.";
 }
 
 export function buildManualFallbackState(input: {

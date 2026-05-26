@@ -738,6 +738,11 @@ button.load-older:disabled {
   background: #132031;
 }
 
+.message-local-guide {
+  border-color: #4a6fa5;
+  background: linear-gradient(180deg, #142033 0%, #121c2b 100%);
+}
+
 .message header {
   display: flex;
   justify-content: space-between;
@@ -762,6 +767,11 @@ button.load-older:disabled {
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.75rem;
+}
+
+.guide-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
 }
 
 .provider-bar {
@@ -1193,6 +1203,14 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+}
+
+.continuity-memory-section.is-highlighted,
+.local-ai-panel.is-highlighted {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(110, 181, 255, 0.22);
+  background: rgba(20, 28, 40, 0.85);
+  transition: box-shadow 160ms ease, background 160ms ease;
 }
 
 .continuity-memory-section-header,

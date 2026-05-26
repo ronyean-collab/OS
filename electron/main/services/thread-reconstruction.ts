@@ -21,7 +21,7 @@ export function reconstructThreadMessages(
        FROM messages m
        JOIN threads t ON t.id = m.thread_id
        WHERE m.thread_id = ?
-       ORDER BY m.created_at ASC, m.id ASC`,
+       ORDER BY m.created_at ASC, m.rowid ASC`,
     )
     .all(threadId) as Array<Record<string, unknown>>;
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ContinuityImportApplyResult,
   ContinuityImportMode,
@@ -14,6 +14,8 @@ type Props = {
   threadId: string | null;
   disabled: boolean;
   onImported?: (result: ContinuityImportApplyResult) => Promise<void> | void;
+  focusTarget?: "import-memory" | "review-memory" | "backup-export" | "memory-update" | "local-ai" | null;
+  focusTick?: number;
 };
 
 function formatImportDate(value: string): string {
@@ -35,7 +37,14 @@ function triggerMarkdownDownload(fileName: string, markdown: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImported }: Props) {
+export function ContinuityImportPanel({
+  workspaceId,
+  threadId,
+  disabled,
+  onImported,
+  focusTarget = null,
+  focusTick = 0,
+}: Props) {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<ContinuityImportMode>("update-current");
   const [preview, setPreview] = useState<MarkdownMemoryPreview | null>(null);
@@ -46,6 +55,10 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
   const [exportBusy, setExportBusy] = useState<MarkdownMemoryFileType | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [highlightedSection, setHighlightedSection] = useState<string | null>(null);
+  const importSectionRef = useRef<HTMLElement>(null);
+  const exportSectionRef = useRef<HTMLElement>(null);
+  const memorySectionRef = useRef<HTMLElement>(null);
 
   const generatedLabel = useMemo(
     () => (preview ? formatImportDate(preview.generatedAt) : exported ? formatImportDate(exported.preview.generatedAt) : "UNKNOWN"),
@@ -66,6 +79,20 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
   useEffect(() => {
     void refreshRecords();
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!focusTarget || focusTick === 0) return;
+    const targetRef =
+      focusTarget === "import-memory"
+        ? importSectionRef
+        : focusTarget === "review-memory"
+          ? memorySectionRef
+          : exportSectionRef;
+    targetRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setHighlightedSection(focusTarget);
+    const timer = window.setTimeout(() => setHighlightedSection((current) => (current === focusTarget ? null : current)), 2200);
+    return () => window.clearTimeout(timer);
+  }, [focusTarget, focusTick]);
 
   const copyPrompt = async () => {
     try {
@@ -175,7 +202,12 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
         </div>
       </div>
 
-      <section className="continuity-memory-section">
+      <section
+        ref={importSectionRef}
+        className={`continuity-memory-section${
+          highlightedSection === "import-memory" ? " is-highlighted" : ""
+        }`}
+      >
         <div className="continuity-memory-section-header">
           <div>
             <h4>Create a Markdown Memory File from your current AI chat</h4>
@@ -222,12 +254,23 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
         </div>
       </section>
 
-      <section className="continuity-memory-section">
+      <section
+        ref={exportSectionRef}
+        className={`continuity-memory-section${
+          highlightedSection === "backup-export" || highlightedSection === "memory-update"
+            ? " is-highlighted"
+            : ""
+        }`}
+      >
         <div className="continuity-memory-section-header">
           <div>
             <h4>Export visible project memory</h4>
             <p className="muted small">
               Generate markdown-first handoff files from ContinuityOS without requiring a provider.
+            </p>
+            <p className="muted small">
+              Continue in Any AI uses a Context Pack. Use these markdown exports when you want a
+              reusable memory update or a reviewable project handoff file.
             </p>
           </div>
         </div>
@@ -385,7 +428,12 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
         </div>
       )}
 
-      <section className="continuity-memory-section">
+      <section
+        ref={memorySectionRef}
+        className={`continuity-memory-section${
+          highlightedSection === "review-memory" ? " is-highlighted" : ""
+        }`}
+      >
         <div className="continuity-memory-section-header">
           <div>
             <h4>Memory / Project State</h4>
@@ -447,6 +495,12 @@ export function ContinuityImportPanel({ workspaceId, threadId, disabled, onImpor
       </section>
 
       {status && <p className="muted small">{status}</p>}
+      {status && status.toLowerCase().includes("markdown memory imported") && (
+        <p className="muted small">
+          Next: Copy a Context Pack and paste it into any AI so the next chat can continue from
+          this memory.
+        </p>
+      )}
       {error && <p className="stream-error">{error}</p>}
     </section>
   );

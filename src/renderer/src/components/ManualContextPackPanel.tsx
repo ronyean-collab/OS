@@ -5,11 +5,13 @@ import type { ManualFallbackKind } from "../manual-fallback";
 type Props = {
   thread: Thread | null;
   latestUserMessage: Message | null;
+  requestText: string;
   disabled: boolean;
   streaming: boolean;
   fallbackKind: ManualFallbackKind;
   highlighted?: boolean;
-  autoOpenSignal?: string | null;
+  openSignal?: number;
+  previewSignal?: number;
   pasteFocusSignal?: number;
   onBuildPack: (input: {
     userRequest: string;
@@ -20,6 +22,8 @@ type Props = {
     targetPlatform: string;
     sourceUserMessageId?: string;
   }) => Promise<void>;
+  onContextPackCopied?: () => void;
+  onAssistantResponseSaved?: () => void;
 };
 
 const TARGET_OPTIONS = [
@@ -34,14 +38,18 @@ const TARGET_OPTIONS = [
 export function ManualContextPackPanel({
   thread,
   latestUserMessage,
+  requestText,
   disabled,
   streaming,
   fallbackKind,
   highlighted,
-  autoOpenSignal,
+  openSignal,
+  previewSignal,
   pasteFocusSignal,
   onBuildPack,
   onSaveAssistantResponse,
+  onContextPackCopied,
+  onAssistantResponseSaved,
 }: Props) {
   const [targetPlatform, setTargetPlatform] = useState<string>("Any AI");
   const [pack, setPack] = useState<UniversalContextPackResult | null>(null);
@@ -60,13 +68,22 @@ export function ManualContextPackPanel({
     setStatus(null);
     setExpanded(false);
     setShowPreview(false);
-  }, [thread?.id, latestUserMessage?.id, targetPlatform]);
+  }, [thread?.id, latestUserMessage?.id, requestText, targetPlatform]);
 
   useEffect(() => {
-    if (autoOpenSignal && latestUserMessage?.id === autoOpenSignal) {
+    if (openSignal) {
       setExpanded(true);
     }
-  }, [autoOpenSignal, latestUserMessage?.id]);
+  }, [openSignal]);
+
+  useEffect(() => {
+    if (!previewSignal) return;
+    setExpanded(true);
+    setShowPreview(true);
+    if (!pack) {
+      void handleBuild();
+    }
+  }, [previewSignal]);
 
   useEffect(() => {
     if (!pasteFocusSignal) return;
@@ -74,7 +91,7 @@ export function ManualContextPackPanel({
     window.setTimeout(() => assistantResponseRef.current?.focus(), 0);
   }, [pasteFocusSignal]);
 
-  const activeRequest = latestUserMessage?.content.trim() ?? "";
+  const activeRequest = requestText.trim() || latestUserMessage?.content.trim() || "";
   const introCopy =
     fallbackKind === "provider-unavailable"
       ? "Message saved locally. Provider unavailable, but ContinuityOS prepared a Context Pack so you can continue in ChatGPT, Claude, Gemini, or another AI."
@@ -111,6 +128,7 @@ export function ManualContextPackPanel({
       const built = pack ?? (await buildPack());
       await navigator.clipboard.writeText(built.text);
       setStatus(`Copied Context Pack for ${built.targetPlatform}.`);
+      onContextPackCopied?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Clipboard copy failed.");
     } finally {
@@ -131,6 +149,7 @@ export function ManualContextPackPanel({
       setAssistantResponse("");
       setPack(null);
       setStatus(`Saved pasted ${targetPlatform} response into this thread.`);
+      onAssistantResponseSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save manual exchange.");
     } finally {
@@ -149,7 +168,7 @@ export function ManualContextPackPanel({
     }
   };
 
-  if (!thread || !latestUserMessage) {
+  if (!thread || !activeRequest) {
     return null;
   }
 
@@ -161,14 +180,15 @@ export function ManualContextPackPanel({
         <div>
           <h3>Continue in Any AI</h3>
           <p className="muted small">
+            Use this after importing memory or sending a message. Copy the Context Pack into
+            another AI, then paste the reply back here.
+          </p>
+          <p className="muted small">
             {introCopy}
           </p>
           <p className="muted small">
-            ContinuityOS does not send this automatically. You choose what to copy.
-          </p>
-          <p className="muted small">
-            Need to bring state back from an existing AI chat? Open Project tools and use
-            Markdown Memory Files.
+            Context Pack = what you paste into another AI so it can continue from your
+            ContinuityOS memory.
           </p>
         </div>
         <button
@@ -234,6 +254,10 @@ export function ManualContextPackPanel({
               <p className="muted small">
                 Includes {pack.includedRecentMessageCount} recent saved messages.
                 {pack.truncatedOlderMessages ? " Older history was omitted for size." : ""}
+              </p>
+              <p className="muted small">
+                Paste this into ChatGPT, Claude, Gemini, Ollama, or another AI, then bring the
+                response back below.
               </p>
             </>
           )}
