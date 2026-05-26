@@ -21,12 +21,11 @@ export function WorkspaceHeader({
         <p className="eyebrow">ContinuityOS</p>
         <h1>{workspace?.name ?? "No workspace"}</h1>
         <p className="muted small workspace-header-subtitle">
-          Chat normally. ContinuityOS saves your work locally, keeps compressed memory visible, and
-          helps any AI continue from your project state.
+          Chat with your local AI. ContinuityOS saves and compresses memory in the background.
         </p>
         {providerBadge && providerRuntimeReady && (
           <p className="muted small workspace-header-status">
-            Optional provider connected: <span className="mono">{providerBadge}</span>
+            AI engine: <span className="mono">{providerBadge}</span>
           </p>
         )}
       </div>

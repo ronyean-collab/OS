@@ -8,7 +8,6 @@ import type {
   Thread,
   UniversalContextPackResult,
 } from "@shared/types";
-import { ManualContextPackPanel } from "./ManualContextPackPanel";
 import { ChatWorkflowPanel } from "./ChatWorkflowPanel";
 import type { ManualFallbackState } from "../manual-fallback";
 import type { GuidanceActionId, GuidanceCard } from "../guided-routines";
@@ -18,6 +17,7 @@ import {
   type ActiveChatWorkflow,
   type ChatWorkflowSession,
 } from "../chat-workflows";
+import { getChatBubblePresentation, shouldShowGuideBubble } from "../chat-surface";
 
 type Props = {
   thread: Thread | null;
@@ -48,7 +48,7 @@ type Props = {
   }) => Promise<void>;
   onCancelStream: () => void;
   guidanceCard: GuidanceCard;
-  guidanceTick: number;
+  hasConversationalGuide: boolean;
   chatWorkflow: ChatWorkflowSession;
   chatWorkflowTick: number;
   contextPackRequestHint: string;
@@ -99,7 +99,7 @@ export function ChatPanel({
   onSaveManualAssistantResponse,
   onCancelStream,
   guidanceCard,
-  guidanceTick,
+  hasConversationalGuide,
   chatWorkflow,
   chatWorkflowTick,
   contextPackRequestHint,
@@ -119,9 +119,6 @@ export function ChatPanel({
   const safeMessages = messages ?? [];
   const [draft, setDraft] = useState("");
   const [guideStatus, setGuideStatus] = useState<string | null>(null);
-  const [manualPanelOpenSignal, setManualPanelOpenSignal] = useState(0);
-  const [manualPanelPreviewSignal, setManualPanelPreviewSignal] = useState(0);
-  const [pasteFocusSignal, setPasteFocusSignal] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollSnapshotRef = useRef<{ height: number; top: number } | null>(null);
@@ -206,16 +203,14 @@ export function ChatPanel({
     latestUserMessage != null &&
     manualFallback?.threadId === thread.id &&
     manualFallback.sourceMessageId === latestUserMessage.id;
-  const showManualContextPack =
-    thread != null &&
-    activeRequest.length > 0 &&
-    chatWorkflow.kind === "none" &&
-    (!providerReady ||
-      showManualFallback ||
-      guidanceCard.state === "memory_imported" ||
-      guidanceCard.state === "context_pack_ready" ||
-      guidanceCard.state === "context_pack_copied" ||
-      guidanceCard.state === "response_saved");
+  const showGuideCard = shouldShowGuideBubble({
+    threadPresent: thread != null,
+    chatWorkflowKind: chatWorkflow.kind,
+    guidanceState: guidanceCard.state,
+    hasConversationalGuide,
+    hasManualFallback: showManualFallback,
+    hasStreamError: streamError != null,
+  });
 
   const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -280,16 +275,6 @@ export function ChatPanel({
     onGuideAction(action);
   };
 
-  useEffect(() => {
-    if (guidanceCard.state === "memory_imported") {
-      setManualPanelOpenSignal((value) => value + 1);
-    }
-    if (guidanceCard.state === "context_pack_copied") {
-      setManualPanelOpenSignal((value) => value + 1);
-      setPasteFocusSignal((value) => value + 1);
-    }
-  }, [guidanceCard.state, guidanceTick]);
-
   return (
     <section className="chat-panel">
       {providerLabel && (
@@ -307,7 +292,7 @@ export function ChatPanel({
 
       <div className={`message-list${switching ? " is-switching" : ""}`} ref={listRef}>
         {!thread && (
-          <div className="empty-state">
+          <div className="chat-empty-state">
             <p className="muted">Create a thread to begin your continuity workspace.</p>
             <p className="muted small">Shortcut: Ctrl+N</p>
           </div>
@@ -328,74 +313,111 @@ export function ChatPanel({
           </div>
         )}
         {thread && visibleMessages.length === 0 && !streaming && (
-          <div className="empty-state">
+          <div className="chat-empty-state">
+            <h3>Ask me anything about this project.</h3>
             <p className="muted">
-              Start by typing a message, importing memory from another AI chat, or copying a
-              Context Pack to continue elsewhere.
+              ContinuityOS saves this conversation locally and keeps compressed memory so future
+              chats can continue.
             </p>
+            <div className="chat-empty-actions">
+              <button
+                type="button"
+                className="small-btn"
+                onClick={() => handleGuideButton("set_up_local_ai")}
+              >
+                Set Up Local AI
+              </button>
+              <button
+                type="button"
+                className="secondary small-btn"
+                onClick={() => handleGuideButton("import_memory")}
+              >
+                Import Memory
+              </button>
+              <button
+                type="button"
+                className="secondary small-btn"
+                onClick={() => handleGuideButton("continue_any_ai")}
+              >
+                Continue in Any AI
+              </button>
+            </div>
           </div>
         )}
-        {visibleMessages.map((m) => (
-          <article key={m.id} className={`message message-${m.role}`}>
-            <header>
-              <span>{m.role}</span>
-              {m.model && <span className="model-tag">{m.model}</span>}
-              <time>{new Date(m.createdAt).toLocaleString()}</time>
-            </header>
-            <p>{m.content || (streaming && m.role === "assistant" ? "…" : "")}</p>
-          </article>
-        ))}
-        {thread && (
-          <article className="message message-local-guide" aria-live="polite">
-            <header>
-              <span>ContinuityOS Guide</span>
-              <span className="local-guidance-badge">Local guidance</span>
-            </header>
-            <h3 className="guide-card-title">{guidanceCard.title}</h3>
-            <p>{guidanceCard.body}</p>
-            {guidanceCard.footer && <p className="muted small">{guidanceCard.footer}</p>}
-            <div className="message-guidance-actions">
-              {guidanceCard.actions.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  className={
-                    action.tone === "primary" ? "small-btn" : "secondary small-btn"
-                  }
-                  onClick={() => handleGuideButton(action.id)}
-                >
-                  {action.label}
-                </button>
-              ))}
+        {visibleMessages.map((m) => {
+          const presentation = getChatBubblePresentation({
+            role: m.role,
+            provider: m.provider,
+          });
+
+          return (
+            <div key={m.id} className={`message-row ${presentation.rowClass}`}>
+              <article className={`message-bubble message-${presentation.rowClass}`}>
+                <div className="message-meta">
+                  <span>{presentation.label}</span>
+                  {m.model && <span className="model-tag">{m.model}</span>}
+                  <time>{new Date(m.createdAt).toLocaleString()}</time>
+                </div>
+                <div className="message-content">
+                  {m.content || (streaming && m.role === "assistant" ? "…" : "")}
+                </div>
+              </article>
             </div>
-            {guideStatus && <p className="muted small">{guideStatus}</p>}
-          </article>
+          );
+        })}
+        {thread && showGuideCard && (
+          <div className="message-row guide">
+            <article className="message-bubble message-guide compact-guide-bubble" aria-live="polite">
+              <div className="message-meta">
+                <span>ContinuityOS Guide</span>
+                <span className="local-guidance-badge">Local guidance</span>
+              </div>
+              <h3 className="guide-card-title">{guidanceCard.title}</h3>
+              <div className="message-content">{guidanceCard.body}</div>
+              {guidanceCard.footer && <p className="muted small">{guidanceCard.footer}</p>}
+              <div className="message-guidance-actions">
+                {guidanceCard.actions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className={action.tone === "primary" ? "small-btn" : "secondary small-btn"}
+                    onClick={() => handleGuideButton(action.id)}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+              {guideStatus && <p className="muted small">{guideStatus}</p>}
+            </article>
+          </div>
         )}
         {thread && chatWorkflow.kind !== "none" && (
-          <ChatWorkflowPanel
-            workflow={chatWorkflow}
-            workflowTick={chatWorkflowTick}
-            workspaceId={workspaceId}
-            workspaceName={workspaceName}
-            threadId={thread?.id ?? null}
-            latestUserMessage={latestUserMessage}
-            continuitySummary={continuitySummary}
-            requestTextHint={contextPackRequestHint}
-            disabled={disabled}
-            streaming={streaming}
-            onClose={onCloseWorkflow}
-            onOpenWorkflow={onOpenWorkflow}
-            onOpenProjectTools={onOpenProjectTools}
-            onApplyContinuityImport={onApplyContinuityImport}
-            onBuildContextPack={onBuildContextPack}
-            onSaveManualAssistantResponse={onSaveManualAssistantResponse}
-            onContextPackCopied={onContextPackCopied}
-            onManualResponseSaved={onManualResponseSaved}
-            onRefreshLocalAiStatus={onRefreshLocalAiStatus}
-            onRefreshEmbeddedLocalAiStatus={onRefreshEmbeddedLocalAiStatus}
-            onPreviewMemoryCompression={onPreviewMemoryCompression}
-            onUseLocalAi={onUseLocalAi}
-          />
+          <div className="message-row guide">
+            <ChatWorkflowPanel
+              workflow={chatWorkflow}
+              workflowTick={chatWorkflowTick}
+              workspaceId={workspaceId}
+              workspaceName={workspaceName}
+              threadId={thread?.id ?? null}
+              latestUserMessage={latestUserMessage}
+              continuitySummary={continuitySummary}
+              requestTextHint={contextPackRequestHint}
+              disabled={disabled}
+              streaming={streaming}
+              onClose={onCloseWorkflow}
+              onOpenWorkflow={onOpenWorkflow}
+              onOpenProjectTools={onOpenProjectTools}
+              onApplyContinuityImport={onApplyContinuityImport}
+              onBuildContextPack={onBuildContextPack}
+              onSaveManualAssistantResponse={onSaveManualAssistantResponse}
+              onContextPackCopied={onContextPackCopied}
+              onManualResponseSaved={onManualResponseSaved}
+              onRefreshLocalAiStatus={onRefreshLocalAiStatus}
+              onRefreshEmbeddedLocalAiStatus={onRefreshEmbeddedLocalAiStatus}
+              onPreviewMemoryCompression={onPreviewMemoryCompression}
+              onUseLocalAi={onUseLocalAi}
+            />
+          </div>
         )}
       </div>
 
@@ -416,7 +438,7 @@ export function ChatPanel({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleComposerKeyDown}
-          placeholder={thread ? "Message your workspace…" : "Select a thread first"}
+          placeholder={thread ? "Ask anything about this project…" : "Select a thread first"}
           disabled={!thread || disabled || streaming}
           rows={3}
         />
@@ -433,30 +455,9 @@ export function ChatPanel({
           </button>
         )}
         <p className="muted small composer-manual-hint">
-          Send saves your message locally. If no local engine is active, ContinuityOS will guide
-          you to Ollama, Built-in Local AI, or a Context Pack fallback.
+          Chat with your local AI. ContinuityOS saves and compresses memory in the background.
         </p>
       </form>
-      {showManualContextPack && (
-        <div className="manual-context-pack-wrap">
-          <ManualContextPackPanel
-            thread={thread}
-            latestUserMessage={latestContextMessage}
-            requestText={activeRequest}
-            disabled={disabled}
-            streaming={streaming}
-            fallbackKind={manualFallback?.kind ?? "no-provider"}
-            highlighted={showManualFallback}
-            openSignal={manualPanelOpenSignal}
-            previewSignal={manualPanelPreviewSignal}
-            pasteFocusSignal={pasteFocusSignal}
-            onBuildPack={onBuildContextPack}
-            onSaveAssistantResponse={onSaveManualAssistantResponse}
-            onContextPackCopied={onContextPackCopied}
-            onAssistantResponseSaved={onManualResponseSaved}
-          />
-        </div>
-      )}
     </section>
   );
 }

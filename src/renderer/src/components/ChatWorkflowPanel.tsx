@@ -486,11 +486,11 @@ export function ChatWorkflowPanel({
   const importSummary = importPreview ? summarizeImportPreview(importPreview) : null;
 
   return (
-    <article className="message message-local-guide chat-workflow-panel" aria-live="polite">
-      <header>
+    <article className="message-bubble message-guide chat-workflow-panel" aria-live="polite">
+      <div className="message-meta">
         <span>ContinuityOS Guide</span>
-        <span className="local-guidance-badge">In-chat workflow</span>
-      </header>
+        <span className="local-guidance-badge">Workflow</span>
+      </div>
       <h3 className="guide-card-title">{definition.title}</h3>
       <p>{definition.prompt}</p>
       {workflowStatus && <p className="muted small">{workflowStatus}</p>}

@@ -942,3 +942,45 @@ Prepare ContinuityOS for tomorrow testing as a local-first AI chat shell with ri
 - Built-in Local AI is scaffolded for future embedded runtime support, but not wired for direct generation in this build
 - Manual UI verification is still required tomorrow for real Ollama interaction and live renderer behavior
 
+---
+
+## 2026-05-26 — Conversation-first chat UI
+
+### Goal
+
+Make ContinuityOS feel like a normal AI chat conversation with user/assistant bubbles, while keeping guide/workflow help secondary unless asked or required.
+
+### Implementation
+
+- Reworked the main chat thread UI into a conversation-first layout with:
+  - right-aligned `You` bubbles
+  - left-aligned `AI` bubbles
+  - centered, visually lighter `ContinuityOS Guide` bubbles
+- Added a pure `chat-surface` helper so bubble presentation and guide visibility stay deterministic and testable.
+- Changed the empty-thread welcome from a tool-heavy prompt into a chat-first state:
+  - “Ask me anything about this project.”
+  - small optional actions for Local AI setup, memory import, and Context Pack continuation
+- Removed the always-visible in-chat guide block from the normal thread view.
+- Kept guide visibility secondary:
+  - shown for help / workflow commands
+  - shown for no-engine replies
+  - shown for explicit post-action confirmations like import or saved response
+  - hidden during normal successful AI chat
+- Stopped automatic workflow expansion in places where it made chat feel tool-first:
+  - import completion now returns to chat instead of auto-opening the next workflow
+  - AI error / unavailable paths now show compact guide guidance instead of auto-opening a workflow panel
+- Kept the chat-driven workflow panel inline only when the workflow is actually active.
+- Simplified header/composer copy so the surface reads like a chat app, not a provider/tool dashboard.
+
+### Verification
+
+- Focused conversation-first tests: PASS (`8` files / `46` tests)
+- Final full `npm test`: pending end-of-task run
+- Final full `npm run build`: pending end-of-task run
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- Ollama/local AI remains the preferred live reply path, but guide/workflow UI is now quieter unless the user explicitly needs it
+- Manual Context Pack and memory flows still exist, but they no longer dominate the default chat surface
+

@@ -295,12 +295,12 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| T1 | Chat shows `ContinuityOS Guide` on workspace open | ☐ | |
-| T2 | Welcome guide offers Continue in Any AI / Import Memory / Review Project Memory / Back Up / Export / Set Up Local AI | ☐ | |
+| T1 | Default thread view feels like a normal chat conversation instead of a full-screen guide | ☐ | |
+| T2 | Welcome state says “Ask me anything about this project” with small optional actions only | ☐ | |
 | T3 | Typing `import memory` starts an in-chat import workflow instead of only moving focus to Project tools | ☐ | |
 | T4 | In-chat import flow previews pasted markdown before apply | ☐ | |
 | T5 | In-chat import flow supports Update current workspace / Checkpoint only / Create new workspace | ☐ | |
-| T6 | After markdown memory import, guide says to copy a Context Pack next and the in-chat Context Pack flow is visible | ☐ | |
+| T6 | After markdown memory import, the workflow collapses back to chat and any next-step guide stays compact | ☐ | |
 | T7 | Typing `continue in any ai` or `context pack` starts an in-chat Context Pack workflow | ☐ | |
 | T8 | Copy Context Pack action transitions to an in-chat paste-response workflow | ☐ | |
 | T9 | Typing `paste response` or `save response` opens the in-chat pasted-response workflow | ☐ | |
@@ -309,14 +309,21 @@ Use this checklist for product-readiness and release verification.
 | T12 | Typing `update memory` or `create memory update` shows an in-chat memory compression preview with copy/apply actions | ☐ | |
 | T13 | Typing `backup` or `export` shows in-chat backup/export guidance with markdown export actions | ☐ | |
 | T14 | Typing `local ai` or `ollama` shows in-chat Local AI guidance, Ollama detection controls, and Built-in Local AI scaffold copy | ☐ | |
-| T15 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
-| T16 | Project tools stays optional for basic chat-driven workflows | ☐ | |
+| T15 | Normal chat with Ollama ready is just user bubble → assistant bubble, without an extra guide card | ☐ | |
+| T16 | No-Ollama state shows a compact guide bubble instead of a large workflow/tool panel | ☐ | |
+| T17 | User messages align right, AI messages align left, and guide bubbles stay visually secondary | ☐ | |
+| T18 | Workflow panels stay hidden until the user asks for help or triggers a workflow command | ☐ | |
+| T19 | Project tools stays optional for basic chat-driven workflows | ☐ | |
 
 ### T Manual Flow
 
+- Open a thread with no messages and confirm the empty state is calm, chat-first, and not tool-heavy.
+- Send a normal question with Ollama ready and confirm the thread looks like a left/right conversation.
+- Send a normal question without Ollama ready and confirm only a compact guide bubble appears.
+- Type `help` and confirm the guide appears only then.
 - Type `import memory` into chat and confirm the in-chat import routine appears.
 - Paste markdown memory, preview it in chat, and apply it in chat.
-- Confirm the next step says to copy a Context Pack.
+- Confirm the import flow closes back to chat and any next-step prompt stays compact.
 - Copy the Context Pack in chat and confirm the paste-response workflow appears.
 - Paste an AI response in chat, save it, and confirm the assistant response is appended once.
 - Type `backup` and confirm in-chat backup guidance appears.
@@ -334,32 +341,35 @@ Use this checklist for product-readiness and release verification.
 
 1. Launch the app.
 2. Confirm the window renders and the normal chat composer is visible.
-3. Type `can you help me`.
-4. Confirm ContinuityOS Guide replies with local-first help options.
-5. Type `what do I do next`.
-6. Confirm next-step guidance appears with Local AI / Context Pack / Memory actions.
-7. Type `why are you not answering`.
-8. Confirm the guide explains Ollama / Built-in Local AI / Context Pack without pretending a model answered.
-9. Type `local ai`.
-10. Confirm the in-chat Ollama flow appears and the Built-in Local AI scaffold is visible.
-11. If Ollama is not running, confirm the unavailable state stays calm.
-12. Start Ollama manually.
-13. Pull/select a model manually if needed.
-14. Click Detect Ollama, then Refresh Models.
-15. Select a model and use Local AI.
-16. Send a normal project question.
-17. Confirm the assistant response saves into the thread.
-18. Type `update memory`.
-19. Confirm the memory update preview appears in chat.
-20. Copy or apply the memory update.
-21. Type `what do you know`.
-22. Confirm compressed memory review appears with objective/summary/decisions/issues/next steps.
-23. Type `continue in any ai`.
-24. Confirm Context Pack fallback still works.
-25. Type `backup`.
-26. Confirm markdown export / backup guidance appears.
-27. Confirm provider setup never blocks the chat.
-28. Confirm no renderer crash or blank window appears.
+3. Confirm the thread looks like a conversation view with bubbles, not a workflow dashboard.
+4. Confirm user messages align right and AI messages align left.
+5. Confirm no large guide card dominates the default screen.
+6. Type `can you help me`.
+7. Confirm ContinuityOS Guide replies with compact local-first help options.
+8. Type `what do I do next`.
+9. Confirm next-step guidance appears only when asked.
+10. Type `why are you not answering`.
+11. Confirm the guide explains Ollama / Context Pack fallback without pretending a model answered.
+12. Type `local ai`.
+13. Confirm the in-chat Ollama flow appears and the Built-in Local AI scaffold is visible.
+14. If Ollama is not running, confirm the unavailable state stays calm and compact.
+15. Start Ollama manually.
+16. Pull/select a model manually if needed.
+17. Click Detect Ollama, then Refresh Models.
+18. Select a model and use Local AI.
+19. Send a normal project question.
+20. Confirm the assistant response saves into the thread as a normal left-side AI bubble.
+21. Type `update memory`.
+22. Confirm the memory update preview appears in chat only when requested.
+23. Copy or apply the memory update.
+24. Type `what do you know`.
+25. Confirm compressed memory review appears with objective/summary/decisions/issues/next steps.
+26. Type `continue in any ai`.
+27. Confirm Context Pack fallback still works.
+28. Type `backup`.
+29. Confirm markdown export / backup guidance appears.
+30. Confirm provider setup never blocks the chat.
+31. Confirm no renderer crash or blank window appears.
 
 ---
 
@@ -381,6 +391,7 @@ npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts te
 npx vitest run tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/chat-workflows.test.ts tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/conversational-shell.test.ts tests/embedded-local-llm.test.ts tests/memory-compression.test.ts tests/local-ai.test.ts tests/stream-runtime.test.ts tests/chat-workflows.test.ts tests/manual-context-pack.test.ts tests/continuity-import-file.test.ts tests/onboarding-flow.test.ts
+npx vitest run tests/chat-surface.test.ts tests/conversational-shell.test.ts tests/chat-workflows.test.ts tests/guided-routines.test.ts tests/local-ai.test.ts tests/stream-runtime.test.ts tests/manual-context-pack.test.ts tests/continuity-import-file.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/context-assembly.test.ts tests/manual-context-pack.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts

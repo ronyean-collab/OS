@@ -88,22 +88,20 @@ export function buildConversationalShellCard(input: {
   const workspaceLabel = input.workspaceName?.trim() || "this workspace";
   const localAiLine =
     input.localAiDetected === true
-      ? " Ollama looks available on this machine if you want to answer directly in-app."
-      : " To answer directly here, set up Built-in Local AI or use Ollama.";
+      ? " Start or select Ollama if you want in-app replies here."
+      : " Start or select Ollama to get in-app replies here.";
 
   if (intent === "help") {
     return {
       state: "welcome",
       title: "ContinuityOS Guide",
-      body: `Yes. I can help you import memory, continue ${workspaceLabel} in any AI, review what the workspace knows, back it up, set up Local AI, or create a markdown memory update.`,
-      footer:
-        "Local guidance is not model output. Your message is saved locally, and you stay in control of what gets copied or applied.",
+      body: `I can help with memory import, backups, Context Packs, Local AI setup, and project memory review for ${workspaceLabel}.`,
+      footer: null,
       actions: [
         { id: "continue_any_ai", label: "Continue in Any AI", tone: "primary" },
         { id: "import_memory", label: "Import Memory" },
-        { id: "review_project_memory", label: "Review Memory" },
-        { id: "create_memory_update", label: "Create Memory Update" },
         { id: "set_up_local_ai", label: "Set Up Local AI" },
+        { id: "review_project_memory", label: "Review Memory" },
       ],
     };
   }
@@ -138,14 +136,12 @@ export function buildConversationalShellCard(input: {
       state: "context_pack_ready",
       title: "I saved that locally.",
       body:
-        "Direct in-app AI replies require a local model. Set up Ollama or Built-in Local AI, or continue through any AI with a Context Pack.",
-      footer:
-        "ContinuityOS is not pretending a model answered here. This is local guidance so you can choose the next step.",
+        "Local AI is not ready yet. Start or select Ollama to get in-app replies, or use a Context Pack with any AI.",
+      footer: null,
       actions: [
         { id: "set_up_local_ai", label: "Set Up Local AI", tone: "primary" },
         { id: "continue_any_ai", label: "Continue in Any AI" },
-        { id: "review_project_memory", label: "Review Memory" },
-        { id: "backup_export", label: "Back Up / Export" },
+        { id: "help", label: "Help" },
       ],
     };
   }
@@ -168,14 +164,12 @@ export function buildConversationalShellCard(input: {
   return {
     state: "context_pack_ready",
     title: "I saved your message locally.",
-    body: `To get an AI-generated answer inside the app, set up Built-in Local AI or use Ollama. You can also continue through any AI with a Context Pack, or review and update project memory first.${localAiLine}`,
-    footer:
-      "ContinuityOS owns the memory. Models are replaceable, and no fake assistant reply is written into the thread.",
+    body: `Local AI is not ready yet. Start or select Ollama to get in-app replies, or use a Context Pack with any AI.${localAiLine}`,
+    footer: null,
     actions: [
       { id: "set_up_local_ai", label: "Set Up Local AI", tone: "primary" },
       { id: "continue_any_ai", label: "Continue in Any AI" },
-      { id: "review_project_memory", label: "Review Memory" },
-      { id: "create_memory_update", label: "Create Memory Update" },
+      { id: "help", label: "Help" },
     ],
   };
 }

@@ -373,3 +373,48 @@ Risks still open:
 - Real Ollama interaction not manually verified in UI
 - Built-in Local AI remains scaffold-only, not active direct generation
 - Renderer behavior visually unverified in this headless session
+
+================================================================================
+ADDENDUM — 2026-05-26 CONVERSATION-FIRST CHAT UI
+================================================================================
+
+Goal:
+- Make ContinuityOS feel like a normal AI chat conversation instead of a guide-
+  first workflow screen.
+
+What changed:
+- Added deterministic chat-surface helpers for:
+  - user / assistant / guide bubble presentation
+  - compact guide visibility rules
+- Updated the chat thread renderer so:
+  - user messages align right and render as `You`
+  - assistant replies align left and render as `AI`
+  - guide/workflow messages stay centered and visually secondary
+- Replaced the large default in-thread guide with a simple empty-chat welcome:
+  - "Ask me anything about this project."
+  - small optional quick actions only
+- Removed the always-visible guide block from normal thread rendering.
+- Stopped auto-expanding workflow-heavy UI after some fallback paths:
+  - no-engine / error cases now prefer compact guide bubbles
+  - import completion returns to normal chat instead of auto-opening the next
+    workflow
+- Kept workflow panels inline only while the workflow is active.
+- Simplified top-level copy so the app reads as a chat experience first.
+
+Automated verification:
+- Focused vitest:
+  chat-surface / conversational-shell / chat-workflows / guided-routines /
+  local-ai / stream-runtime / manual-context-pack / continuity-import-file
+  => PASS (8 files / 46 tests)
+
+Manual verification:
+- Not performed in this addendum session.
+- Manual pass should confirm:
+  1. bubble alignment and spacing
+  2. guide only appears when asked/needed
+  3. normal Ollama chat does not inject extra guide cards
+  4. workflow panels stay hidden until triggered
+
+Risks still open:
+- Live bubble rendering not visually verified in Electron during this session
+- Real Ollama interaction still needs manual confirmation

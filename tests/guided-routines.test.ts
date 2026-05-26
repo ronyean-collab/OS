@@ -13,11 +13,10 @@ describe("guided routines", () => {
     const card = getWorkspaceGuidance({ localAiDetected: false });
     const labels = card.actions.map((action) => action.label);
 
-    expect(card.title).toContain("ContinuityOS guide");
-    expect(labels).toContain("Continue in Any AI");
+    expect(card.title).toContain("ContinuityOS Guide");
+    expect(labels).toContain("Continue Chatting");
     expect(labels).toContain("Import Memory");
-    expect(labels).toContain("Review Project Memory");
-    expect(labels).toContain("Back Up / Export");
+    expect(labels).toContain("Continue in Any AI");
     expect(labels).toContain("Set Up Local AI");
   });
 
@@ -50,9 +49,9 @@ describe("guided routines", () => {
   it("message-saved-without-provider guidance explains the local-only next step", () => {
     const card = getNoProviderGuidance({ localAiDetected: true });
 
-    expect(card.title).toContain("saved locally");
-    expect(card.body).toContain("copy a Context Pack");
-    expect(card.body).toContain("Local AI is available");
+    expect(card.title).toContain("saved");
+    expect(card.body).toContain("Local AI is not ready yet");
+    expect(card.body).toContain("Start or select Ollama");
   });
 
   it("tracks the guided flow through import, copy, and response save", () => {

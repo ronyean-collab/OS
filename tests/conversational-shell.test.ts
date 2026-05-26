@@ -28,9 +28,9 @@ describe("conversational shell", () => {
     });
 
     expect(card.title).toContain("ContinuityOS Guide");
-    expect(card.body).toContain("import memory");
+    expect(card.body).toContain("memory import");
     expect(card.actions.map((action) => action.label)).toContain("Continue in Any AI");
-    expect(card.footer).toContain("not model output");
+    expect(card.footer).toBeNull();
   });
 
   it("builds no-engine guidance for unknown questions", () => {
@@ -41,9 +41,9 @@ describe("conversational shell", () => {
     });
 
     expect(card.title).toContain("saved");
-    expect(card.body).toContain("set up Built-in Local AI or use Ollama");
+    expect(card.body).toContain("Local AI is not ready yet");
     expect(card.actions.map((action) => action.label)).toContain("Set Up Local AI");
-    expect(card.actions.map((action) => action.label)).toContain("Create Memory Update");
+    expect(card.actions.map((action) => action.label)).toContain("Help");
   });
 
   it("keeps workflow commands out of the conversational fallback path", () => {

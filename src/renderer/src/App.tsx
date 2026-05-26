@@ -126,7 +126,6 @@ export function App() {
     fileName: string;
   } | null>(null);
   const [guidanceState, setGuidanceState] = useState<GuidanceState>("welcome");
-  const [guidanceTick, setGuidanceTick] = useState(0);
   const [guidanceImportedSource, setGuidanceImportedSource] = useState<string | null>(null);
   const [chatWorkflow, setChatWorkflow] = useState<ChatWorkflowSession>(
     createChatWorkflowSession("none"),
@@ -145,6 +144,7 @@ export function App() {
   const activeStreamIdRef = useRef<string | null>(null);
   const assistantMessageIdRef = useRef<string | null>(null);
   const latestSentUserMessageIdRef = useRef<string | null>(null);
+  const latestSentContentRef = useRef<string>("");
 
   const isProviderConfigured = (config: ProviderConfig | null) => {
     if (!config?.enabled) return false;
@@ -155,7 +155,6 @@ export function App() {
   const updateGuidance = useCallback(
     (state: GuidanceState, importedSource?: string | null) => {
       setGuidanceState(state);
-      setGuidanceTick((value) => value + 1);
       if (importedSource !== undefined) {
         setGuidanceImportedSource(importedSource);
       }
@@ -432,6 +431,7 @@ export function App() {
         activeStreamIdRef.current = null;
         assistantMessageIdRef.current = null;
         latestSentUserMessageIdRef.current = null;
+        latestSentContentRef.current = "";
         setStreamError(null);
         setManualFallback(null);
         setConversationalGuideCard(null);
@@ -461,14 +461,17 @@ export function App() {
           if (fallback) {
             setManualFallback(fallback);
             setStreamError(null);
-            setConversationalGuideCard(null);
+            setConversationalGuideCard(
+              buildConversationalShellCard({
+                message: latestSentContentRef.current || "why are you not answering",
+                guidanceState,
+                localAiDetected: localAiStatus?.detected ?? null,
+                workspaceName: workspace?.name ?? null,
+              }),
+            );
             updateGuidance(
               transitionGuidanceState(guidanceState, "message_saved_without_provider"),
             );
-            openChatWorkflow("continue_any_ai", {
-              sourceUserMessageId: latestSentUserMessageIdRef.current,
-              requestText: contextPackRequestHint,
-            });
           } else {
             setStreamError(event.error);
             setManualFallback(null);
@@ -480,6 +483,7 @@ export function App() {
           setConversationalGuideCard(null);
         }
         latestSentUserMessageIdRef.current = null;
+        latestSentContentRef.current = "";
         if (workspace) void refreshOpsPanels(workspace.id);
       },
     });
@@ -487,13 +491,12 @@ export function App() {
   }, [
     activeThread,
     closeChatWorkflow,
-    contextPackRequestHint,
     guidanceState,
-    openChatWorkflow,
     providerConfig,
     refreshOpsPanels,
     updateGuidance,
     workspace,
+    localAiStatus?.detected,
   ]);
 
   const handleCreateThread = async () => {
@@ -612,6 +615,7 @@ export function App() {
   const handleSendMessage = async (content: string) => {
     if (!activeThread || streaming) return;
     const localRoute = routeChatIntent(content, guidanceState);
+    latestSentContentRef.current = content.trim();
     setStreamError(null);
     setManualFallback(null);
     setConversationalGuideCard(null);
@@ -709,10 +713,14 @@ export function App() {
         updateGuidance(
           transitionGuidanceState(guidanceState, "message_saved_without_provider"),
         );
-        openChatWorkflow("continue_any_ai", {
-          sourceUserMessageId: result.userMessage?.id ?? null,
-          requestText: content.trim(),
-        });
+        setConversationalGuideCard(
+          buildConversationalShellCard({
+            message: content,
+            guidanceState,
+            localAiDetected: localAiStatus?.detected ?? null,
+            workspaceName: workspace?.name ?? null,
+          }),
+        );
       } else {
         setStreamError(result.error);
       }
@@ -734,10 +742,14 @@ export function App() {
         updateGuidance(
           transitionGuidanceState(guidanceState, "message_saved_without_provider"),
         );
-        openChatWorkflow("continue_any_ai", {
-          sourceUserMessageId: result.userMessage?.id ?? null,
-          requestText: content.trim(),
-        });
+        setConversationalGuideCard(
+          buildConversationalShellCard({
+            message: content,
+            guidanceState,
+            localAiDetected: localAiStatus?.detected ?? null,
+            workspaceName: workspace?.name ?? null,
+          }),
+        );
       }
       if (workspace) await refreshOpsPanels(workspace.id);
     }
@@ -890,21 +902,13 @@ export function App() {
       await continuity.setActiveWorkspace(result.workspace.id);
       await loadWorkspace(result.workspace);
       updateGuidance("memory_imported", result.sourceAi || null);
-      openChatWorkflow("continue_any_ai", {
-        requestText: contextPackRequestHint,
-        note:
-          "Memory imported. Next, copy a Context Pack so another AI can continue from the updated workspace.",
-      });
+      closeChatWorkflow();
       return;
     }
     if (workspace) {
       await refreshOpsPanels(workspace.id);
     }
-    openChatWorkflow("continue_any_ai", {
-      requestText: contextPackRequestHint,
-      note:
-        "Memory imported. Next, copy a Context Pack so another AI can continue from the updated workspace.",
-    });
+    closeChatWorkflow();
   };
 
   const handleApplyWorkflowImport = async (input: {
@@ -1104,6 +1108,17 @@ export function App() {
   const handleGuideAction = useCallback(
     (action: GuidanceActionId) => {
       setConversationalGuideCard(null);
+      if (action === "help") {
+        setConversationalGuideCard(
+          buildConversationalShellCard({
+            message: "help",
+            guidanceState,
+            localAiDetected: localAiStatus?.detected ?? null,
+            workspaceName: workspace?.name ?? null,
+          }),
+        );
+        return;
+      }
       if (action === "import_memory") {
         openChatWorkflow("import_memory");
         return;
@@ -1129,7 +1144,14 @@ export function App() {
         openChatWorkflow("continue_any_ai", { requestText: contextPackRequestHint });
       }
     },
-    [contextPackRequestHint, guidanceState, openChatWorkflow, updateGuidance],
+    [
+      contextPackRequestHint,
+      guidanceState,
+      localAiStatus?.detected,
+      openChatWorkflow,
+      updateGuidance,
+      workspace?.name,
+    ],
   );
 
   if (loading) {
@@ -1263,7 +1285,7 @@ export function App() {
           onSaveManualAssistantResponse={handleSaveManualAssistantResponse}
           onCancelStream={handleCancelStream}
           guidanceCard={activeGuidanceCard}
-          guidanceTick={guidanceTick}
+          hasConversationalGuide={conversationalGuideCard != null}
           chatWorkflow={chatWorkflow}
           chatWorkflowTick={chatWorkflowTick}
           contextPackRequestHint={contextPackRequestHint}
