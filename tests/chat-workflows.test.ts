@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createChatWorkflowSession,
   getChatWorkflowDefinition,
+  getContextPackRequestHint,
   routeChatIntent,
   summarizeImportPreview,
 } from "../src/renderer/src/chat-workflows";
@@ -106,5 +107,32 @@ describe("chat workflows", () => {
     expect(session.sourceUserMessageId).toBe("message-12345678");
     expect(definition.title).toBe("Continue in Any AI");
     expect(definition.prompt).toContain("Context Pack");
+  });
+
+  it("builds a safe request hint with null inputs and ignores workflow commands", () => {
+    expect(
+      getContextPackRequestHint({
+        messages: [
+          { role: "user", content: "import memory" },
+          { role: "assistant", content: "Sure." },
+        ],
+        continuitySummary: "Use the saved summary first.\nThen the details.",
+      }),
+    ).toBe("Use the saved summary first.");
+
+    expect(
+      getContextPackRequestHint({
+        messages: null,
+        guidanceState: "memory_imported",
+        continuitySummary: null,
+        importedSource: "Claude",
+      }),
+    ).toBe(
+      "Continue this project using the latest ContinuityOS memory imported from Claude.",
+    );
+
+    expect(getContextPackRequestHint()).toBe(
+      "Continue this project from the latest saved ContinuityOS memory.",
+    );
   });
 });

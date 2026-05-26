@@ -1,4 +1,4 @@
-import type { ContinuityImportPreview } from "@shared/types";
+import type { ContinuityImportPreview, Message } from "@shared/types";
 import type { GuidanceState } from "./guided-routines";
 
 export type ChatWorkflowType =
@@ -47,6 +47,14 @@ export type ImportPreviewSummary = {
   decisionsExample: string | null;
   openIssuesExample: string | null;
   nextStepsExample: string | null;
+};
+
+type ContextPackRequestHintInput = {
+  explicitRequestText?: string | null;
+  messages?: Pick<Message, "role" | "content">[] | null;
+  guidanceState?: GuidanceState;
+  continuitySummary?: string | null;
+  importedSource?: string | null;
 };
 
 const NO_ROUTE: ChatIntentRoute = { kind: "none" };
@@ -167,6 +175,38 @@ export function createChatWorkflowSession(
     note: options.note ?? null,
     targetPlatform: options.targetPlatform ?? "Any AI",
   };
+}
+
+export function getContextPackRequestHint(
+  input: ContextPackRequestHintInput = {},
+): string {
+  const explicit = input.explicitRequestText?.trim();
+  if (explicit) return explicit;
+
+  const guidanceState = input.guidanceState ?? "welcome";
+  const latestUser = (input.messages ?? [])
+    .slice()
+    .reverse()
+    .find(
+      (message) =>
+        message.role === "user" &&
+        message.content.trim().length > 0 &&
+        routeChatIntent(message.content, guidanceState).kind === "none",
+    );
+  if (latestUser) {
+    return latestUser.content.trim();
+  }
+
+  const summaryLine = input.continuitySummary?.trim().split(/\n+/)[0]?.trim();
+  if (summaryLine) {
+    return summaryLine;
+  }
+
+  if (input.importedSource?.trim()) {
+    return `Continue this project using the latest ContinuityOS memory imported from ${input.importedSource.trim()}.`;
+  }
+
+  return "Continue this project from the latest saved ContinuityOS memory.";
 }
 
 export function getChatWorkflowDefinition(kind: ActiveChatWorkflow): ChatWorkflowDefinition {

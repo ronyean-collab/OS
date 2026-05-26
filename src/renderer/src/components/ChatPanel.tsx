@@ -10,7 +10,12 @@ import { ManualContextPackPanel } from "./ManualContextPackPanel";
 import { ChatWorkflowPanel } from "./ChatWorkflowPanel";
 import type { ManualFallbackState } from "../manual-fallback";
 import type { GuidanceActionId, GuidanceCard } from "../guided-routines";
-import { routeChatIntent, type ActiveChatWorkflow, type ChatWorkflowSession } from "../chat-workflows";
+import {
+  getContextPackRequestHint,
+  routeChatIntent,
+  type ActiveChatWorkflow,
+  type ChatWorkflowSession,
+} from "../chat-workflows";
 
 type Props = {
   thread: Thread | null;
@@ -102,6 +107,7 @@ export function ChatPanel({
   onUseLocalAi,
   disabled,
 }: Props) {
+  const safeMessages = messages ?? [];
   const [draft, setDraft] = useState("");
   const [guideStatus, setGuideStatus] = useState<string | null>(null);
   const [manualPanelOpenSignal, setManualPanelOpenSignal] = useState(0);
@@ -110,7 +116,7 @@ export function ChatPanel({
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollSnapshotRef = useRef<{ height: number; top: number } | null>(null);
-  const prevMessageCountRef = useRef(messages.length);
+  const prevMessageCountRef = useRef(safeMessages.length);
   const prevThreadIdRef = useRef(thread?.id ?? null);
 
   useEffect(() => {
@@ -124,18 +130,18 @@ export function ChatPanel({
       const snap = scrollSnapshotRef.current;
       el.scrollTop = el.scrollHeight - snap.height + snap.top;
       scrollSnapshotRef.current = null;
-      prevMessageCountRef.current = messages.length;
+      prevMessageCountRef.current = safeMessages.length;
       return;
     }
 
     const grewAtEnd =
-      messages.length > prevMessageCountRef.current || threadChanged || streaming;
-    prevMessageCountRef.current = messages.length;
+      safeMessages.length > prevMessageCountRef.current || threadChanged || streaming;
+    prevMessageCountRef.current = safeMessages.length;
 
     if (grewAtEnd || threadChanged) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, streaming, thread?.id]);
+  }, [safeMessages, streaming, thread?.id]);
 
   const handleLoadOlder = () => {
     const el = listRef.current;
@@ -157,12 +163,12 @@ export function ChatPanel({
   };
 
   const latestUserMessage = useMemo(
-    () => [...messages].reverse().find((message) => message.role === "user") ?? null,
-    [messages],
+    () => [...safeMessages].reverse().find((message) => message.role === "user") ?? null,
+    [safeMessages],
   );
   const latestContextMessage = useMemo(
     () =>
-      [...messages]
+      [...safeMessages]
         .reverse()
         .find(
           (message) =>
@@ -170,13 +176,15 @@ export function ChatPanel({
             message.content.trim().length > 0 &&
             routeChatIntent(message.content, guidanceCard.state).kind === "none",
         ) ?? null,
-    [guidanceCard.state, messages],
+    [guidanceCard.state, safeMessages],
   );
-  const activeRequest =
-    chatWorkflow.requestText?.trim() ||
-    latestContextMessage?.content.trim() ||
-    contextPackRequestHint.trim();
-  const visibleMessages = messages.filter(
+  const activeRequest = getContextPackRequestHint({
+    explicitRequestText:
+      chatWorkflow.requestText ??
+      latestContextMessage?.content ??
+      contextPackRequestHint,
+  });
+  const visibleMessages = safeMessages.filter(
     (message) =>
       !(
         message.role === "assistant" &&
@@ -306,7 +314,7 @@ export function ChatPanel({
             >
               {loadingOlder
                 ? "Loading earlier messages…"
-                : `Load earlier messages (${messages.length} of ${totalCount})`}
+                : `Load earlier messages (${safeMessages.length} of ${totalCount})`}
             </button>
           </div>
         )}

@@ -44,6 +44,7 @@ import {
 } from "./guided-routines";
 import {
   createChatWorkflowSession,
+  getContextPackRequestHint,
   routeChatIntent,
   type ActiveChatWorkflow,
   type ChatWorkflowSession,
@@ -381,6 +382,17 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [workspace, appState?.recoveryMode]);
+
+  const contextPackRequestHint = useMemo(
+    () =>
+      getContextPackRequestHint({
+        messages,
+        guidanceState,
+        continuitySummary: workspace?.continuitySummary ?? null,
+        importedSource: guidanceImportedSource,
+      }),
+    [guidanceImportedSource, guidanceState, messages, workspace?.continuitySummary],
+  );
 
   useEffect(() => {
     const cleanup = continuity.onStreamEvents({
@@ -1033,28 +1045,6 @@ export function App() {
     localAiDetected,
     providerReady: providerSendEnabled,
   });
-
-  const contextPackRequestHint = useMemo(() => {
-    const latestUser = [...messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.role === "user" &&
-          message.content.trim().length > 0 &&
-          routeChatIntent(message.content, guidanceState).kind === "none",
-      );
-    if (latestUser) {
-      return latestUser.content.trim();
-    }
-    const summaryLine = workspace?.continuitySummary?.trim().split(/\n+/)[0]?.trim();
-    if (summaryLine) {
-      return summaryLine;
-    }
-    if (guidanceImportedSource) {
-      return `Continue this project using the latest ContinuityOS memory imported from ${guidanceImportedSource}.`;
-    }
-    return "Continue this project from the latest saved ContinuityOS memory.";
-  }, [guidanceImportedSource, guidanceState, messages, workspace?.continuitySummary]);
 
   const handleGuideAction = useCallback(
     (action: GuidanceActionId) => {

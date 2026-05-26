@@ -94,7 +94,11 @@ export function ChatWorkflowPanel({
   onRefreshLocalAiStatus,
   onUseLocalAi,
 }: Props) {
-  const continuity = window.continuity;
+  if (!workflow || workflow.kind === "none") {
+    return null;
+  }
+
+  const continuity = typeof window === "undefined" ? undefined : window.continuity;
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
@@ -207,8 +211,7 @@ export function ChatWorkflowPanel({
     try {
       const next = await onRefreshLocalAiStatus();
       setLocalAiStatus(next);
-      const nextModel =
-        next?.selectedModel ?? next?.models[0] ?? "";
+      const nextModel = next?.selectedModel ?? next?.models?.[0] ?? "";
       setLocalAiModel(nextModel);
       setWorkflowStatus(next?.message ?? "Local AI status refreshed.");
     } catch (error) {
@@ -393,10 +396,6 @@ export function ChatWorkflowPanel({
     } finally {
       setBusyLabel(null);
     }
-  }
-
-  if (workflow.kind === "none") {
-    return null;
   }
 
   const definition = getChatWorkflowDefinition(workflow.kind as ActiveChatWorkflow);
@@ -763,14 +762,14 @@ export function ChatWorkflowPanel({
               <dt>Selected model</dt>
               <dd>{localAiStatus?.selectedModel ?? "None yet"}</dd>
               <dt>Available models</dt>
-              <dd>{localAiStatus?.models.length ?? 0}</dd>
+              <dd>{localAiStatus?.models?.length ?? 0}</dd>
             </dl>
             <p className="muted small">
               {localAiStatus?.message ??
                 "I can check whether Ollama is running and whether any local models are available."}
             </p>
           </section>
-          {localAiStatus?.models.length ? (
+          {localAiStatus?.models?.length ? (
             <label className="chat-workflow-field">
               <span>Model</span>
               <select
