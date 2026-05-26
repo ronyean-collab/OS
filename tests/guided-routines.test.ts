@@ -13,7 +13,7 @@ describe("guided routines", () => {
     const card = getWorkspaceGuidance({ localAiDetected: false });
     const labels = card.actions.map((action) => action.label);
 
-    expect(card.title).toContain("help you continue this project");
+    expect(card.title).toContain("ContinuityOS guide");
     expect(labels).toContain("Continue in Any AI");
     expect(labels).toContain("Import Memory");
     expect(labels).toContain("Review Project Memory");
@@ -24,7 +24,7 @@ describe("guided routines", () => {
   it("post-import guidance recommends copying a Context Pack", () => {
     const card = getPostImportGuidance({ importedSource: "Claude" });
 
-    expect(card.body).toContain("Next, generate a Context Pack");
+    expect(card.body).toContain("The next step is to copy a Context Pack");
     expect(card.actions[0]?.label).toBe("Copy Context Pack");
     expect(card.footer).toContain("Context Pack =");
   });

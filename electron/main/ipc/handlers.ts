@@ -12,6 +12,7 @@ import {
 } from "../database/connection";
 import {
   getThreadMessageCount,
+  insertMessage,
   listMessages,
   listMessagesPage,
 } from "../services/message-service";
@@ -521,6 +522,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.MESSAGE_COUNT, (_e, threadId: string) => {
     const db = requireDb();
     return getThreadMessageCount(db, assertThreadId(threadId));
+  });
+
+  ipcMain.handle(IPC.MESSAGE_SAVE_LOCAL, (_e, input: unknown) => {
+    const db = requireDb();
+    const parsed = assertSendMessageInput(input);
+    return insertMessage(db, {
+      threadId: parsed.threadId,
+      role: "user",
+      content: parsed.content,
+    });
   });
 
   ipcMain.handle(IPC.MESSAGE_SEND, async (event, input: unknown) => {

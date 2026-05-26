@@ -251,6 +251,33 @@ Guided continuity routine (2026-05-25):
 - Added focused helper tests for guided copy and state transitions
 - Made thread reconstruction order deterministic under timestamp ties to keep manual-response tests stable
 
+Chat-driven continuity workflows (2026-05-25):
+- Added `chat-workflows.ts` so the renderer can route explicit chat commands into local workflows without inventing assistant replies
+- Added a new in-chat `ChatWorkflowPanel` for:
+  - Import Memory preview/apply
+  - Continue in Any AI / Context Pack
+  - Paste AI Response / Save Response
+  - Review Project Memory
+  - Back Up / Export
+  - Set Up Local AI
+- Added natural-language intent routing for commands such as:
+  - `import memory`
+  - `backup`
+  - `continue in any ai`
+  - `what do you know`
+  - `setup local ai`
+  - `paste response`
+  - `what do I do next`
+- Added a local-only message-save IPC path so explicit workflow commands can be stored as normal user messages in the active thread without starting a provider stream
+- Moved the visible ContinuityOS Guide to the bottom of the message list so it behaves like the latest local guide response
+- In-chat import now uses the existing markdown preview/apply APIs directly instead of only focusing Project tools
+- In-chat Context Pack flow now copies and previews the pack inside chat and transitions directly into the paste-response flow
+- In-chat pasted-response flow now saves via the existing assistant-only manual response path and keeps canonical history append-only
+- In-chat review-memory flow now summarizes the latest saved markdown memory record and avoids inventing missing facts
+- In-chat backup/export flow now offers markdown export actions directly in chat while keeping full backup tools optional
+- In-chat Local AI flow now detects/refreshes Ollama status in chat and can enable the selected local model from chat
+- Added pure helper tests in `tests/chat-workflows.test.ts`
+
 ================================================================================
 FIXES APPLIED THIS SESSION
 ================================================================================
@@ -265,6 +292,7 @@ FIXES APPLIED THIS SESSION
 - Added optional Ollama-based Local AI tools and runtime support without reintroducing an API-key gate
 - Added markdown-first memory import/export/review so ContinuityOS can hand state to and from any AI as `.md`
 - Added a guided continuity routine so the main chat can act as the app's command center without requiring provider setup
+- Added chat-driven continuity workflows so import, Context Pack, pasted-response, review, backup, and Local AI flows can run directly inside the chat
 
 ================================================================================
 UNRESOLVED RISKS
@@ -280,6 +308,7 @@ UNRESOLVED RISKS
 - Markdown export/review UI still needs live verification in a real Electron window
 - Local AI tools still need live verification with a real Ollama server/model on this machine
 - Guided ContinuityOS Guide flow still needs live visual confirmation inside the Electron app window
+- Chat-driven workflow interactions still need live visual confirmation inside the Electron app window
 - Token-aware truncation still not implemented
 
 ================================================================================

@@ -121,8 +121,8 @@ export function getWorkspaceGuidance(context: GuidanceContext = {}): GuidanceCar
 
   return {
     state: "welcome",
-    title: "Hi, I can help you continue this project.",
-    body: `What would you like to do next?${localAiNote}`,
+    title: "Hi, I'm your ContinuityOS guide.",
+    body: `I can help you import memory, continue this project in any AI, review what the workspace knows, back it up, or set up Local AI.${localAiNote}`,
     footer:
       "Chat normally. ContinuityOS saves your work locally, explains the next step, and helps any AI continue from your project memory.",
     actions: getNextStepActions("welcome"),
@@ -137,7 +137,7 @@ export function getPostImportGuidance(context: GuidanceContext = {}): GuidanceCa
   return {
     state: "memory_imported",
     title: "Memory imported.",
-    body: `${sourceNote} Next, generate a Context Pack so a new AI chat can pick up from here.`,
+    body: `${sourceNote} The next step is to copy a Context Pack so a new AI chat can pick up from here.`,
     footer:
       "Context Pack = what you paste into ChatGPT, Claude, Gemini, Ollama, or another AI so it can continue from your ContinuityOS memory.",
     actions: getNextStepActions("memory_imported"),
@@ -165,7 +165,7 @@ export function getPostContextCopyGuidance(): GuidanceCard {
     state: "context_pack_copied",
     title: "Context Pack copied.",
     body:
-      "Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI. Then paste the AI reply back here and save it.",
+      "Done. Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI. Then paste the AI reply back here and save it.",
     footer:
       "If you want to review the exact handoff again, open the Context Pack preview or copy it again.",
     actions: getNextStepActions("context_pack_copied"),
@@ -177,7 +177,7 @@ export function getResponseSavedGuidance(): GuidanceCard {
     state: "response_saved",
     title: "Response saved.",
     body:
-      "Want to update the project memory so future chats remember this progress, or keep chatting from here?",
+      "Saved. Want to update the project memory so future chats remember this progress, or keep chatting from here?",
     footer:
       "If you do not need a memory update yet, you can keep chatting normally and create one later from Project tools.",
     actions: getNextStepActions("response_saved"),

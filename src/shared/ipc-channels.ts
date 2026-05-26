@@ -19,6 +19,7 @@ export const IPC = {
   MESSAGE_LIST: "message:list",
   MESSAGE_LIST_PAGE: "message:list-page",
   MESSAGE_COUNT: "message:count",
+  MESSAGE_SAVE_LOCAL: "message:save-local",
   MESSAGE_SEND: "message:send",
   MESSAGE_STREAM_START: "message:stream-start",
   MESSAGE_STREAM_CANCEL: "message:stream-cancel",

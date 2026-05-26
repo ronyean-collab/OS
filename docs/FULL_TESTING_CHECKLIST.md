@@ -119,7 +119,7 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| H1 | `npm test` — 35 files / 185 tests | ☐ | |
+| H1 | `npm test` — 37 files / 198 tests | ☐ | |
 | H2 | `npm run build` | ☐ | |
 | H3 | `npm run dev` launches | ☐ | |
 | H4 | Preload bridge exposes `window.continuity` | ☐ | |
@@ -296,15 +296,32 @@ Use this checklist for product-readiness and release verification.
 |---|--------|------|-------|
 | T1 | Chat shows `ContinuityOS Guide` on workspace open | ☐ | |
 | T2 | Welcome guide offers Continue in Any AI / Import Memory / Review Project Memory / Back Up / Export / Set Up Local AI | ☐ | |
-| T3 | Import Memory guide action opens Project tools and the Markdown Memory import area | ☐ | |
-| T4 | After markdown memory import, guide says to copy a Context Pack next | ☐ | |
-| T5 | After import, Continue in Any AI / Context Pack area is obvious without requiring provider setup | ☐ | |
-| T6 | Copy Context Pack action leads to post-copy guidance explaining where to paste it | ☐ | |
-| T7 | Paste AI Response action focuses the pasted-response area when possible | ☐ | |
-| T8 | Saving a pasted AI response shows response-saved guidance with memory-update / continue / backup actions | ☐ | |
-| T9 | Review Project Memory / Back Up / Export / Set Up Local AI guide actions open the right Project tools area | ☐ | |
-| T10 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
-| T11 | Project tools stays collapsed by default until opened intentionally | ☐ | |
+| T3 | Typing `import memory` starts an in-chat import workflow instead of only moving focus to Project tools | ☐ | |
+| T4 | In-chat import flow previews pasted markdown before apply | ☐ | |
+| T5 | In-chat import flow supports Update current workspace / Checkpoint only / Create new workspace | ☐ | |
+| T6 | After markdown memory import, guide says to copy a Context Pack next and the in-chat Context Pack flow is visible | ☐ | |
+| T7 | Typing `continue in any ai` or `context pack` starts an in-chat Context Pack workflow | ☐ | |
+| T8 | Copy Context Pack action transitions to an in-chat paste-response workflow | ☐ | |
+| T9 | Typing `paste response` or `save response` opens the in-chat pasted-response workflow | ☐ | |
+| T10 | Saving a pasted AI response shows response-saved guidance with memory-update / continue / backup actions | ☐ | |
+| T11 | Typing `what do you know` or `review memory` shows an in-chat memory review card without inventing missing facts | ☐ | |
+| T12 | Typing `backup` or `export` shows in-chat backup/export guidance with markdown export actions | ☐ | |
+| T13 | Typing `local ai` or `ollama` shows in-chat Local AI guidance and detection controls | ☐ | |
+| T14 | Normal chat composer still works and guide does not fake assistant output | ☐ | |
+| T15 | Project tools stays optional for basic chat-driven workflows | ☐ | |
+
+### T Manual Flow
+
+- Type `import memory` into chat and confirm the in-chat import routine appears.
+- Paste markdown memory, preview it in chat, and apply it in chat.
+- Confirm the next step says to copy a Context Pack.
+- Copy the Context Pack in chat and confirm the paste-response workflow appears.
+- Paste an AI response in chat, save it, and confirm the assistant response is appended once.
+- Type `backup` and confirm in-chat backup guidance appears.
+- Type `what do you know` and confirm the in-chat memory review card appears.
+- Type `local ai` and confirm the in-chat Local AI guidance appears.
+- Confirm Project tools remain optional for these flows.
+- Confirm no provider gate appears.
 
 ---
 
@@ -313,6 +330,7 @@ Use this checklist for product-readiness and release verification.
 ```bash
 npm test
 npm run build
+npx vitest run tests/chat-workflows.test.ts
 npx vitest run tests/guided-routines.test.ts
 npx vitest run tests/context-assembly.test.ts
 npx vitest run tests/continuity-summary.test.ts
@@ -323,6 +341,7 @@ npx vitest run tests/provider-multi.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/thread-sidebar-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/manual-context-pack.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts tests/manual-fallback-copy.test.ts
 npx vitest run tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
+npx vitest run tests/chat-workflows.test.ts tests/guided-routines.test.ts tests/continuity-import-file.test.ts tests/manual-context-pack.test.ts tests/manual-fallback-copy.test.ts tests/stream-runtime.test.ts tests/onboarding-flow.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/local-ai.test.ts tests/manual-context-pack.test.ts tests/continuity-summary.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/continuity-import-file.test.ts tests/context-assembly.test.ts tests/manual-context-pack.test.ts tests/stream-runtime.test.ts
 npx vitest run tests/workspace-import.test.ts

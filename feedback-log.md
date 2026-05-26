@@ -834,3 +834,52 @@ Make the chat feel like a guided ContinuityOS assistant by explaining what to do
 - Provider setup remains optional; normal local-first chat and manual continuation still work
 - Live visual inspection is still required to mark the new guide flow as manually verified
 
+---
+
+## 2026-05-25 — Chat-driven continuity workflows
+
+### Goal
+
+Make the chat behave like an interactive ContinuityOS guide so users can import memory, preview/apply it, copy Context Packs, paste AI responses, review memory, back up, and set up Local AI through chat instead of hunting through panels.
+
+### Implementation
+
+- Added a renderer-side chat workflow model with explicit workflow/session routing for:
+  - Import Memory
+  - Continue in Any AI / Context Pack
+  - Paste AI Response
+  - Review Project Memory
+  - Back Up / Export
+  - Set Up Local AI
+- Added simple natural-language intent routing for chat commands like:
+  - `import memory`
+  - `backup`
+  - `continue in any ai`
+  - `what do you know`
+  - `setup local ai`
+  - `paste response`
+  - `what do I do next`
+- Added a new in-chat workflow panel so core transactions stay inside the conversation instead of only focusing Project tools
+- Added a local-only user message save IPC path so explicit workflow commands can be recorded in-thread without fabricating assistant output or triggering a provider response
+- Moved the visible ContinuityOS Guide to the bottom of the conversation so it behaves like the latest local guide response
+- Implemented in-chat import preview/apply flow using the existing markdown memory preview/apply APIs
+- Implemented in-chat Context Pack copy/preview flow and automatic transition into the pasted-response workflow
+- Implemented in-chat pasted-response save flow using the existing assistant-only manual response path
+- Implemented in-chat project-memory review using saved markdown memory records, without inventing missing facts
+- Implemented in-chat backup/export guidance with markdown export actions, while keeping full backup tools as an optional secondary path
+- Implemented in-chat Local AI/Ollama guidance with detect/refresh/select/use actions, while keeping Project tools as a secondary fallback
+- Added pure routing/helper coverage in `tests/chat-workflows.test.ts`
+
+### Verification
+
+- Targeted tests: PASS
+- Final full `npm test`: PASS (`37` files / `198` tests)
+- Final full `npm run build`: PASS
+- Dev smoke: PASS for startup logs and steady-state process health; live UI interaction not manually verified in this session
+
+### Notes
+
+- Workflow cards and local guidance remain renderer-only so canonical assistant history stays clean
+- Explicit workflow commands can now be saved as normal local user messages without pretending an AI answered them
+- Project tools remain available, but basic flows now work directly in chat
+

@@ -1,11 +1,22 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Message, Thread, UniversalContextPackResult } from "@shared/types";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  ContinuityImportApplyResult,
+  LocalAiStatus,
+  Message,
+  Thread,
+  UniversalContextPackResult,
+} from "@shared/types";
 import { ManualContextPackPanel } from "./ManualContextPackPanel";
+import { ChatWorkflowPanel } from "./ChatWorkflowPanel";
 import type { ManualFallbackState } from "../manual-fallback";
 import type { GuidanceActionId, GuidanceCard } from "../guided-routines";
+import { routeChatIntent, type ActiveChatWorkflow, type ChatWorkflowSession } from "../chat-workflows";
 
 type Props = {
   thread: Thread | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+  continuitySummary: string | null;
   messages: Message[];
   totalCount: number;
   hasMoreOlder: boolean;
@@ -31,15 +42,34 @@ type Props = {
   onCancelStream: () => void;
   guidanceCard: GuidanceCard;
   guidanceTick: number;
+  chatWorkflow: ChatWorkflowSession;
+  chatWorkflowTick: number;
   contextPackRequestHint: string;
   onGuideAction: (action: GuidanceActionId) => void;
+  onOpenWorkflow: (
+    workflow: ActiveChatWorkflow,
+    options?: Partial<Omit<ChatWorkflowSession, "kind">>,
+  ) => void;
+  onCloseWorkflow: () => void;
+  onOpenProjectTools: (
+    target: "import-memory" | "review-memory" | "backup-export" | "memory-update" | "local-ai",
+  ) => void;
+  onApplyContinuityImport: (input: {
+    text: string;
+    mode: "update-current" | "create-workspace" | "checkpoint-only";
+  }) => Promise<ContinuityImportApplyResult>;
   onContextPackCopied: () => void;
   onManualResponseSaved: () => void;
+  onRefreshLocalAiStatus: () => Promise<LocalAiStatus | null>;
+  onUseLocalAi: (input: { model: string; baseUrl: string }) => Promise<void>;
   disabled: boolean;
 };
 
 export function ChatPanel({
   thread,
+  workspaceId,
+  workspaceName,
+  continuitySummary,
   messages,
   totalCount,
   hasMoreOlder,
@@ -58,10 +88,18 @@ export function ChatPanel({
   onCancelStream,
   guidanceCard,
   guidanceTick,
+  chatWorkflow,
+  chatWorkflowTick,
   contextPackRequestHint,
   onGuideAction,
+  onOpenWorkflow,
+  onCloseWorkflow,
+  onOpenProjectTools,
+  onApplyContinuityImport,
   onContextPackCopied,
   onManualResponseSaved,
+  onRefreshLocalAiStatus,
+  onUseLocalAi,
   disabled,
 }: Props) {
   const [draft, setDraft] = useState("");
@@ -118,8 +156,26 @@ export function ChatPanel({
     await onSend(text);
   };
 
-  const latestUserMessage = [...messages].reverse().find((message) => message.role === "user") ?? null;
-  const activeRequest = latestUserMessage?.content.trim() || contextPackRequestHint.trim();
+  const latestUserMessage = useMemo(
+    () => [...messages].reverse().find((message) => message.role === "user") ?? null,
+    [messages],
+  );
+  const latestContextMessage = useMemo(
+    () =>
+      [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role === "user" &&
+            message.content.trim().length > 0 &&
+            routeChatIntent(message.content, guidanceCard.state).kind === "none",
+        ) ?? null,
+    [guidanceCard.state, messages],
+  );
+  const activeRequest =
+    chatWorkflow.requestText?.trim() ||
+    latestContextMessage?.content.trim() ||
+    contextPackRequestHint.trim();
   const visibleMessages = messages.filter(
     (message) =>
       !(
@@ -136,6 +192,7 @@ export function ChatPanel({
   const showManualContextPack =
     thread != null &&
     activeRequest.length > 0 &&
+    chatWorkflow.kind === "none" &&
     (!providerReady ||
       showManualFallback ||
       guidanceCard.state === "memory_imported" ||
@@ -159,27 +216,19 @@ export function ChatPanel({
         targetPlatform: "Any AI",
       });
       await navigator.clipboard.writeText(pack.text);
-      setGuideStatus("Context Pack copied. Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI.");
+      setGuideStatus(
+        "Context Pack copied. Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI, then paste the reply back here.",
+      );
       onContextPackCopied();
-      setManualPanelOpenSignal((value) => value + 1);
-      setPasteFocusSignal((value) => value + 1);
+      onOpenWorkflow("paste_ai_response", {
+        sourceUserMessageId: latestUserMessage?.id ?? null,
+        requestText: activeRequest,
+      });
     } catch (error) {
       setGuideStatus(
         error instanceof Error ? error.message : "Could not copy the Context Pack.",
       );
     }
-  };
-
-  const handlePasteResponse = () => {
-    setGuideStatus("Reply tools opened below so you can paste the AI response back here.");
-    setManualPanelOpenSignal((value) => value + 1);
-    setPasteFocusSignal((value) => value + 1);
-  };
-
-  const handleShowContextPackAgain = () => {
-    setGuideStatus("Context Pack preview opened below.");
-    setManualPanelOpenSignal((value) => value + 1);
-    setManualPanelPreviewSignal((value) => value + 1);
   };
 
   const handleGuideButton = (action: GuidanceActionId) => {
@@ -188,21 +237,25 @@ export function ChatPanel({
       return;
     }
     if (action === "continue_any_ai") {
-      setGuideStatus("Continue in Any AI is ready below.");
-      setManualPanelOpenSignal((value) => value + 1);
-      setManualPanelPreviewSignal((value) => value + 1);
-      onGuideAction(action);
+      onOpenWorkflow("continue_any_ai", { requestText: activeRequest });
+      setGuideStatus("Continue in Any AI is ready in chat.");
       return;
     }
     if (action === "show_context_pack_again") {
-      handleShowContextPackAgain();
+      onOpenWorkflow("continue_any_ai", { requestText: activeRequest });
+      setGuideStatus("Context Pack preview opened in chat.");
       return;
     }
     if (action === "paste_ai_response") {
-      handlePasteResponse();
+      onOpenWorkflow("paste_ai_response", {
+        sourceUserMessageId: latestUserMessage?.id ?? null,
+        requestText: activeRequest,
+      });
+      setGuideStatus("Paste the AI response into the in-chat workflow below.");
       return;
     }
     if (action === "continue_chatting") {
+      onCloseWorkflow();
       composerRef.current?.focus();
       setGuideStatus("Composer focused. Keep chatting when you are ready.");
       return;
@@ -265,6 +318,16 @@ export function ChatPanel({
             </p>
           </div>
         )}
+        {visibleMessages.map((m) => (
+          <article key={m.id} className={`message message-${m.role}`}>
+            <header>
+              <span>{m.role}</span>
+              {m.model && <span className="model-tag">{m.model}</span>}
+              <time>{new Date(m.createdAt).toLocaleString()}</time>
+            </header>
+            <p>{m.content || (streaming && m.role === "assistant" ? "…" : "")}</p>
+          </article>
+        ))}
         {thread && (
           <article className="message message-local-guide" aria-live="polite">
             <header>
@@ -291,16 +354,30 @@ export function ChatPanel({
             {guideStatus && <p className="muted small">{guideStatus}</p>}
           </article>
         )}
-        {visibleMessages.map((m) => (
-          <article key={m.id} className={`message message-${m.role}`}>
-            <header>
-              <span>{m.role}</span>
-              {m.model && <span className="model-tag">{m.model}</span>}
-              <time>{new Date(m.createdAt).toLocaleString()}</time>
-            </header>
-            <p>{m.content || (streaming && m.role === "assistant" ? "…" : "")}</p>
-          </article>
-        ))}
+        {thread && chatWorkflow.kind !== "none" && (
+          <ChatWorkflowPanel
+            workflow={chatWorkflow}
+            workflowTick={chatWorkflowTick}
+            workspaceId={workspaceId}
+            workspaceName={workspaceName}
+            threadId={thread?.id ?? null}
+            latestUserMessage={latestUserMessage}
+            continuitySummary={continuitySummary}
+            requestTextHint={contextPackRequestHint}
+            disabled={disabled}
+            streaming={streaming}
+            onClose={onCloseWorkflow}
+            onOpenWorkflow={onOpenWorkflow}
+            onOpenProjectTools={onOpenProjectTools}
+            onApplyContinuityImport={onApplyContinuityImport}
+            onBuildContextPack={onBuildContextPack}
+            onSaveManualAssistantResponse={onSaveManualAssistantResponse}
+            onContextPackCopied={onContextPackCopied}
+            onManualResponseSaved={onManualResponseSaved}
+            onRefreshLocalAiStatus={onRefreshLocalAiStatus}
+            onUseLocalAi={onUseLocalAi}
+          />
+        )}
       </div>
 
       <form
@@ -344,7 +421,7 @@ export function ChatPanel({
         <div className="manual-context-pack-wrap">
           <ManualContextPackPanel
             thread={thread}
-            latestUserMessage={latestUserMessage}
+            latestUserMessage={latestContextMessage}
             requestText={activeRequest}
             disabled={disabled}
             streaming={streaming}

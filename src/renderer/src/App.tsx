@@ -4,6 +4,7 @@ import type {
   AutosaveStatus,
   ContinuityImportApplyResult,
   ImportPreview,
+  LocalAiStatus,
   Message,
   ProviderConfig,
   SnapshotRecord,
@@ -41,6 +42,12 @@ import {
   type GuidanceActionId,
   type GuidanceState,
 } from "./guided-routines";
+import {
+  createChatWorkflowSession,
+  routeChatIntent,
+  type ActiveChatWorkflow,
+  type ChatWorkflowSession,
+} from "./chat-workflows";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -117,6 +124,10 @@ export function App() {
   const [guidanceState, setGuidanceState] = useState<GuidanceState>("welcome");
   const [guidanceTick, setGuidanceTick] = useState(0);
   const [guidanceImportedSource, setGuidanceImportedSource] = useState<string | null>(null);
+  const [chatWorkflow, setChatWorkflow] = useState<ChatWorkflowSession>(
+    createChatWorkflowSession("none"),
+  );
+  const [chatWorkflowTick, setChatWorkflowTick] = useState(0);
   const [localAiDetected, setLocalAiDetected] = useState<boolean | null>(null);
   const [opsFocusTarget, setOpsFocusTarget] = useState<OpsFocusTarget | null>(null);
   const [opsFocusTick, setOpsFocusTick] = useState(0);
@@ -153,11 +164,52 @@ export function App() {
     [],
   );
 
+  const openChatWorkflow = useCallback(
+    (
+      kind: ActiveChatWorkflow,
+      options: Partial<Omit<ChatWorkflowSession, "kind">> = {},
+    ) => {
+      setChatWorkflow(createChatWorkflowSession(kind, options));
+      setChatWorkflowTick((value) => value + 1);
+    },
+    [],
+  );
+
+  const closeChatWorkflow = useCallback(() => {
+    setChatWorkflow(createChatWorkflowSession("none"));
+    setChatWorkflowTick((value) => value + 1);
+  }, []);
+
   const refreshAppState = useCallback(async () => {
     const state = await continuity.getAppState();
     setAppState(state);
     return state;
   }, []);
+
+  const refreshLocalAiStatus = useCallback(
+    async (workspaceId?: string | null): Promise<LocalAiStatus | null> => {
+      const nextWorkspaceId = workspaceId ?? workspace?.id ?? null;
+      if (!nextWorkspaceId) {
+        setLocalAiDetected(null);
+        return null;
+      }
+      const status = await continuity.getLocalAiStatus(nextWorkspaceId).catch(() => null);
+      setLocalAiDetected(status?.detected ?? null);
+      return status;
+    },
+    [workspace?.id],
+  );
+
+  const openProjectToolsFromChat = useCallback(
+    (target: OpsFocusTarget) => {
+      if (target === "local-ai") {
+        focusProjectTools("provider", target);
+        return;
+      }
+      focusProjectTools("overview", target);
+    },
+    [focusProjectTools],
+  );
 
   const refreshOpsPanels = useCallback(async (wsId: string) => {
     setHealthLoading(true);
@@ -239,6 +291,7 @@ export function App() {
       setProviderConfig(null);
       setManualFallback(null);
       setLocalAiDetected(null);
+      closeChatWorkflow();
       return;
     }
     const [config, localAiStatus] = await Promise.all([
@@ -264,7 +317,8 @@ export function App() {
       setOldestMessageCursor(null);
     }
     updateGuidance("welcome");
-  }, [refreshOpsPanels, loadThreadMessages, reloadThreads, updateGuidance]);
+    closeChatWorkflow();
+  }, [closeChatWorkflow, refreshOpsPanels, loadThreadMessages, reloadThreads, updateGuidance]);
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
@@ -350,6 +404,7 @@ export function App() {
         setStreamError(null);
         setManualFallback(null);
         updateGuidance("welcome");
+        closeChatWorkflow();
         if (workspace) void refreshOpsPanels(workspace.id);
       },
       onError: (event: StreamErrorEvent) => {
@@ -377,6 +432,10 @@ export function App() {
             updateGuidance(
               transitionGuidanceState(guidanceState, "message_saved_without_provider"),
             );
+            openChatWorkflow("continue_any_ai", {
+              sourceUserMessageId: latestSentUserMessageIdRef.current,
+              requestText: contextPackRequestHint,
+            });
           } else {
             setStreamError(event.error);
             setManualFallback(null);
@@ -390,7 +449,17 @@ export function App() {
       },
     });
     return cleanup;
-  }, [activeThread, guidanceState, providerConfig, refreshOpsPanels, updateGuidance, workspace]);
+  }, [
+    activeThread,
+    closeChatWorkflow,
+    contextPackRequestHint,
+    guidanceState,
+    openChatWorkflow,
+    providerConfig,
+    refreshOpsPanels,
+    updateGuidance,
+    workspace,
+  ]);
 
   const handleCreateThread = async () => {
     if (!workspace) return;
@@ -404,6 +473,7 @@ export function App() {
     setMessages([]);
     setManualFallback(null);
     updateGuidance("welcome");
+    closeChatWorkflow();
     await refreshOpsPanels(workspace.id);
   };
 
@@ -417,6 +487,7 @@ export function App() {
       setStreamError(null);
       setManualFallback((prev) => (prev?.threadId === thread.id ? prev : null));
       updateGuidance("welcome");
+      closeChatWorkflow();
     } finally {
       setThreadSwitching(false);
     }
@@ -503,9 +574,46 @@ export function App() {
 
   const handleSendMessage = async (content: string) => {
     if (!activeThread || streaming) return;
+    const localRoute = routeChatIntent(content, guidanceState);
     setStreamError(null);
     setManualFallback(null);
     updateGuidance("welcome");
+    closeChatWorkflow();
+
+    if (localRoute.kind !== "none") {
+      const savedMessage = await continuity.saveLocalUserMessage({
+        threadId: activeThread.id,
+        content,
+      });
+      setMessages((prev) =>
+        [...prev, savedMessage].filter(
+          (message, index, list) => list.findIndex((item) => item.id === message.id) === index,
+        ),
+      );
+      latestSentUserMessageIdRef.current = savedMessage.id;
+      assistantMessageIdRef.current = null;
+      activeStreamIdRef.current = null;
+      setStreaming(false);
+      if (workspace) {
+        await reloadThreads(workspace.id);
+        await refreshOpsPanels(workspace.id);
+      }
+      if (localRoute.kind === "guidance") {
+        updateGuidance(guidanceState);
+        return;
+      }
+      const requestText =
+        localRoute.workflow === "continue_any_ai"
+          ? contextPackRequestHint
+          : localRoute.workflow === "paste_ai_response"
+            ? contextPackRequestHint
+            : null;
+      openChatWorkflow(localRoute.workflow, {
+        sourceUserMessageId: savedMessage.id,
+        requestText,
+      });
+      return;
+    }
 
     const result = await continuity.startMessageStream({
       threadId: activeThread.id,
@@ -537,6 +645,10 @@ export function App() {
         updateGuidance(
           transitionGuidanceState(guidanceState, "message_saved_without_provider"),
         );
+        openChatWorkflow("continue_any_ai", {
+          sourceUserMessageId: result.userMessage?.id ?? null,
+          requestText: content.trim(),
+        });
       } else {
         setStreamError(result.error);
       }
@@ -558,6 +670,10 @@ export function App() {
         updateGuidance(
           transitionGuidanceState(guidanceState, "message_saved_without_provider"),
         );
+        openChatWorkflow("continue_any_ai", {
+          sourceUserMessageId: result.userMessage?.id ?? null,
+          requestText: content.trim(),
+        });
       }
       if (workspace) await refreshOpsPanels(workspace.id);
     }
@@ -637,6 +753,21 @@ export function App() {
     }
   };
 
+  const handleUseLocalAi = useCallback(
+    async (input: { model: string; baseUrl: string }) => {
+      if (!workspace) {
+        throw new Error("Open a workspace before enabling Local AI.");
+      }
+      await handleSaveProvider("ollama", input.model, "", input.baseUrl);
+      const status = await refreshLocalAiStatus(workspace.id);
+      if (status?.detected) {
+        updateGuidance("local_ai_available");
+      }
+      return status;
+    },
+    [handleSaveProvider, refreshLocalAiStatus, updateGuidance, workspace],
+  );
+
   const handleTestProvider = async (
     provider: string,
     model: string,
@@ -693,11 +824,37 @@ export function App() {
       await continuity.setActiveWorkspace(result.workspace.id);
       await loadWorkspace(result.workspace);
       updateGuidance("memory_imported", result.sourceAi || null);
+      openChatWorkflow("continue_any_ai", {
+        requestText: contextPackRequestHint,
+        note:
+          "Memory imported. Next, copy a Context Pack so another AI can continue from the updated workspace.",
+      });
       return;
     }
     if (workspace) {
       await refreshOpsPanels(workspace.id);
     }
+    openChatWorkflow("continue_any_ai", {
+      requestText: contextPackRequestHint,
+      note:
+        "Memory imported. Next, copy a Context Pack so another AI can continue from the updated workspace.",
+    });
+  };
+
+  const handleApplyWorkflowImport = async (input: {
+    text: string;
+    mode: "update-current" | "create-workspace" | "checkpoint-only";
+  }) => {
+    const result = await continuity.applyContinuityImport({
+      text: input.text,
+      mode: input.mode,
+      workspaceId: workspace?.id ?? undefined,
+    });
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+    await handleContinuityImported(result);
+    return result;
   };
 
   const isEncryptedBackupFile = (text: string): boolean => {
@@ -880,7 +1037,12 @@ export function App() {
   const contextPackRequestHint = useMemo(() => {
     const latestUser = [...messages]
       .reverse()
-      .find((message) => message.role === "user" && message.content.trim().length > 0);
+      .find(
+        (message) =>
+          message.role === "user" &&
+          message.content.trim().length > 0 &&
+          routeChatIntent(message.content, guidanceState).kind === "none",
+      );
     if (latestUser) {
       return latestUser.content.trim();
     }
@@ -892,36 +1054,39 @@ export function App() {
       return `Continue this project using the latest ContinuityOS memory imported from ${guidanceImportedSource}.`;
     }
     return "Continue this project from the latest saved ContinuityOS memory.";
-  }, [guidanceImportedSource, messages, workspace?.continuitySummary]);
+  }, [guidanceImportedSource, guidanceState, messages, workspace?.continuitySummary]);
 
   const handleGuideAction = useCallback(
     (action: GuidanceActionId) => {
       if (action === "import_memory") {
-        focusProjectTools("overview", "import-memory");
+        openChatWorkflow("import_memory");
         return;
       }
       if (action === "review_project_memory") {
-        focusProjectTools("overview", "review-memory");
+        openChatWorkflow("review_memory");
         return;
       }
       if (action === "backup_export") {
-        focusProjectTools("overview", "backup-export");
+        openChatWorkflow("backup_export");
         updateGuidance(transitionGuidanceState(guidanceState, "backup_recommended"));
         return;
       }
       if (action === "create_memory_update") {
-        focusProjectTools("overview", "memory-update");
+        openChatWorkflow("backup_export", {
+          note:
+            "Export a fresh markdown memory file here if you want future chats to remember this progress.",
+        });
         return;
       }
       if (action === "set_up_local_ai") {
-        focusProjectTools("provider", "local-ai");
+        openChatWorkflow("setup_local_ai");
         return;
       }
       if (action === "continue_any_ai") {
-        updateGuidance(transitionGuidanceState(guidanceState, "message_saved_without_provider"));
+        openChatWorkflow("continue_any_ai", { requestText: contextPackRequestHint });
       }
     },
-    [focusProjectTools, guidanceState, updateGuidance],
+    [contextPackRequestHint, guidanceState, openChatWorkflow, updateGuidance],
   );
 
   if (loading) {
@@ -1035,6 +1200,9 @@ export function App() {
         />
         <ChatPanel
           thread={activeThread}
+          workspaceId={workspace?.id ?? null}
+          workspaceName={workspace?.name ?? null}
+          continuitySummary={workspace?.continuitySummary ?? null}
           messages={messages}
           switching={threadSwitching}
           totalCount={messageTotalCount}
@@ -1053,14 +1221,22 @@ export function App() {
           onCancelStream={handleCancelStream}
           guidanceCard={guidanceCard}
           guidanceTick={guidanceTick}
+          chatWorkflow={chatWorkflow}
+          chatWorkflowTick={chatWorkflowTick}
           contextPackRequestHint={contextPackRequestHint}
           onGuideAction={handleGuideAction}
+          onOpenWorkflow={openChatWorkflow}
+          onCloseWorkflow={closeChatWorkflow}
+          onOpenProjectTools={openProjectToolsFromChat}
+          onApplyContinuityImport={handleApplyWorkflowImport}
           onContextPackCopied={() =>
             updateGuidance(transitionGuidanceState(guidanceState, "context_pack_copied"))
           }
           onManualResponseSaved={() =>
             updateGuidance(transitionGuidanceState(guidanceState, "manual_response_saved"))
           }
+          onRefreshLocalAiStatus={() => refreshLocalAiStatus(workspace?.id)}
+          onUseLocalAi={handleUseLocalAi}
           disabled={appState?.recoveryMode ?? false}
         />
         {showProjectTools && (

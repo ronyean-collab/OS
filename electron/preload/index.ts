@@ -229,6 +229,11 @@ const api = {
   getMessageCount: (threadId: string): Promise<number> =>
     ipcRenderer.invoke(IPC.MESSAGE_COUNT, threadId),
 
+  saveLocalUserMessage: (input: {
+    threadId: string;
+    content: string;
+  }): Promise<Message> => ipcRenderer.invoke(IPC.MESSAGE_SAVE_LOCAL, input),
+
   getWorkspaceHealth: (workspaceId: string): Promise<WorkspaceHealthReport> =>
     ipcRenderer.invoke(IPC.WORKSPACE_HEALTH, workspaceId),
 
