@@ -236,19 +236,19 @@ Use this checklist for product-readiness and release verification.
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
 | Q1 | Fresh app opens to threads + current chat without provider onboarding | ☐ | |
-| Q2 | Provider setup does not block startup or sending the first message | ☐ | |
-| Q3 | Bottom composer looks like a normal chat box with placeholder `Message your workspace…` | ☐ | |
+| Q2 | Ollama setup does not block startup or sending the first message | ☐ | |
+| Q3 | Bottom composer looks like a normal chat box with placeholder `Ask anything about this project…` | ☐ | |
 | Q4 | Pressing Enter sends; Shift+Enter inserts a newline | ☐ | |
-| Q5 | No-provider send saves the user message locally immediately and keeps the thread centered | ☐ | |
-| Q6 | No-provider send shows a chat-like ContinuityOS guidance card instead of an error banner | ☐ | |
-| Q7 | Guidance card clearly explains that the message was saved locally and the AI reply path is the Context Pack | ☐ | |
-| Q8 | Copy Context Pack works from the fallback guidance flow without any API key | ☐ | |
+| Q5 | No-Ollama send saves the user message locally immediately and keeps the thread centered | ☐ | |
+| Q6 | No-Ollama send shows a compact ContinuityOS guidance card instead of an error banner | ☐ | |
+| Q7 | Guidance card clearly explains that the message was saved locally and Ollama is required for in-app replies | ☐ | |
+| Q8 | Memory review and backup/export remain available from the fallback guidance flow without any API key | ☐ | |
 | Q9 | Pasting an external AI response saves only the assistant response without duplicating the saved user message | ☐ | |
-| Q10 | Provider failure falls back calmly to `Continue in Any AI` without losing the user message | ☐ | |
-| Q11 | Provider settings remain accessible but only inside Project tools | ☐ | |
+| Q10 | Ollama failure falls back calmly to setup guidance without losing the user message | ☐ | |
+| Q11 | Ollama setup remains accessible only inside Project tools | ☐ | |
 | Q12 | Export/import/diagnostics/snapshots are hidden from the main screen but still accessible | ☐ | |
 | Q13 | Thread list remains visible by default with rename/move/archive/delete reachable from the thread menu | ☐ | |
-| Q14 | No-provider state feels calm and non-blocking | ☐ | |
+| Q14 | No-Ollama state feels calm and non-blocking | ☐ | |
 
 ---
 
@@ -277,17 +277,17 @@ Use this checklist for product-readiness and release verification.
 
 | # | Check | Pass | Notes |
 |---|--------|------|-------|
-| S1 | Project tools AI panel shows Local AI section | ☐ | |
+| S1 | Project tools AI panel shows `Ollama Setup` instead of generic provider setup | ☐ | |
 | S2 | Detect Ollama shows calm not-running state when unavailable | ☐ | Automated: `local-ai.test.ts` |
 | S3 | Refresh models lists available Ollama models when reachable | ☐ | |
 | S4 | Local AI setup requires no API key | ☐ | Automated: `provider-multi.test.ts` |
-| S5 | Use Local AI saves Ollama as the active provider | ☐ | |
+| S5 | Use Ollama for Chat saves Ollama as the active chat engine | ☐ | |
 | S6 | Test Local AI uses Ollama connection test copy | ☐ | |
 | S7 | Local AI chat saves assistant response when Ollama is reachable | ☐ | Automated: `local-ai.test.ts` |
 | S8 | Imported state and continuity summary are included before local AI call | ☐ | Automated: `local-ai.test.ts` |
-| S9 | If Ollama is unavailable, Manual Mode fallback still works calmly | ☐ | Requires live UI validation |
-| S10 | Local AI remains optional and does not block startup or normal manual chat | ☐ | |
-| S11 | In-chat `local ai` flow shows Built-in Local AI scaffold with model-folder status and no bundled model requirement | ☐ | |
+| S9 | If Ollama is unavailable, local memory, imports, and backups still work calmly | ☐ | Requires live UI validation |
+| S10 | Ollama remains optional for opening the app, but required for direct in-app AI replies | ☐ | |
+| S11 | In-chat `local ai` or `ollama` flow stays focused on Ollama detection, model refresh, and selection | ☐ | |
 
 ---
 
@@ -301,14 +301,14 @@ Use this checklist for product-readiness and release verification.
 | T4 | In-chat import flow previews pasted markdown before apply | ☐ | |
 | T5 | In-chat import flow supports Update current workspace / Checkpoint only / Create new workspace | ☐ | |
 | T6 | After markdown memory import, the workflow collapses back to chat and any next-step guide stays compact | ☐ | |
-| T7 | Typing `continue in any ai` or `context pack` starts an in-chat Context Pack workflow | ☐ | |
-| T8 | Copy Context Pack action transitions to an in-chat paste-response workflow | ☐ | |
+| T7 | Typing `continue in any ai` or `context pack` starts an advanced in-chat handoff workflow, not the default chat path | ☐ | |
+| T8 | Copy handoff action transitions to an in-chat paste-response workflow | ☐ | |
 | T9 | Typing `paste response` or `save response` opens the in-chat pasted-response workflow | ☐ | |
 | T10 | Saving a pasted AI response shows response-saved guidance with memory-update / continue / backup actions | ☐ | |
 | T11 | Typing `what do you know` or `review memory` shows an in-chat memory review card without inventing missing facts | ☐ | |
 | T12 | Typing `update memory` or `create memory update` shows an in-chat memory compression preview with copy/apply actions | ☐ | |
 | T13 | Typing `backup` or `export` shows in-chat backup/export guidance with markdown export actions | ☐ | |
-| T14 | Typing `local ai` or `ollama` shows in-chat Local AI guidance, Ollama detection controls, and Built-in Local AI scaffold copy | ☐ | |
+| T14 | Typing `local ai` or `ollama` shows in-chat Ollama setup guidance and detection controls | ☐ | |
 | T15 | Normal chat with Ollama ready is just user bubble → assistant bubble, without an extra guide card | ☐ | |
 | T16 | No-Ollama state shows a compact guide bubble instead of a large workflow/tool panel | ☐ | |
 | T17 | User messages align right, AI messages align left, and guide bubbles stay visually secondary | ☐ | |
@@ -324,14 +324,13 @@ Use this checklist for product-readiness and release verification.
 - Type `import memory` into chat and confirm the in-chat import routine appears.
 - Paste markdown memory, preview it in chat, and apply it in chat.
 - Confirm the import flow closes back to chat and any next-step prompt stays compact.
-- Copy the Context Pack in chat and confirm the paste-response workflow appears.
+- Copy the advanced AI handoff in chat and confirm the paste-response workflow appears.
 - Paste an AI response in chat, save it, and confirm the assistant response is appended once.
 - Type `backup` and confirm in-chat backup guidance appears.
 - Type `what do you know` and confirm the in-chat memory review card appears.
 - Type `update memory` and confirm the in-chat memory update preview appears.
-- Copy or apply the memory update and confirm future Context Packs still use it.
+- Copy or apply the memory update and confirm future handoffs still use it.
 - Type `local ai` and confirm the in-chat Local AI guidance appears.
-- Confirm the Built-in Local AI scaffold appears without downloading or bundling a model.
 - Confirm Project tools remain optional for these flows.
 - Confirm no provider gate appears.
 
@@ -349,9 +348,9 @@ Use this checklist for product-readiness and release verification.
 8. Type `what do I do next`.
 9. Confirm next-step guidance appears only when asked.
 10. Type `why are you not answering`.
-11. Confirm the guide explains Ollama / Context Pack fallback without pretending a model answered.
+11. Confirm the guide explains that Ollama is required for in-app replies without pretending a model answered.
 12. Type `local ai`.
-13. Confirm the in-chat Ollama flow appears and the Built-in Local AI scaffold is visible.
+13. Confirm the in-chat Ollama flow appears.
 14. If Ollama is not running, confirm the unavailable state stays calm and compact.
 15. Start Ollama manually.
 16. Pull/select a model manually if needed.
@@ -365,10 +364,10 @@ Use this checklist for product-readiness and release verification.
 24. Type `what do you know`.
 25. Confirm compressed memory review appears with objective/summary/decisions/issues/next steps.
 26. Type `continue in any ai`.
-27. Confirm Context Pack fallback still works.
+27. Confirm the advanced handoff flow still works.
 28. Type `backup`.
 29. Confirm markdown export / backup guidance appears.
-30. Confirm provider setup never blocks the chat.
+30. Confirm cloud-provider setup never appears in the normal chat flow.
 31. Confirm no renderer crash or blank window appears.
 
 ---

@@ -984,3 +984,34 @@ Make ContinuityOS feel like a normal AI chat conversation with user/assistant bu
 - Ollama/local AI remains the preferred live reply path, but guide/workflow UI is now quieter unless the user explicitly needs it
 - Manual Context Pack and memory flows still exist, but they no longer dominate the default chat surface
 
+---
+
+## 2026-05-26 — Ollama-only chat engine
+
+### Goal
+
+Simplify ContinuityOS so direct AI chat is Ollama-only, while keeping markdown memory, compressed memory, backup/export, and advanced handoff tools.
+
+### Implementation
+
+- Restricted the normal in-app chat runtime to Ollama only.
+- Kept legacy cloud-provider definitions/config handling in code for compatibility, but hid them from the normal UI and active chat flow.
+- Replaced the generic provider panel with a dedicated `Ollama Setup` panel in Project tools.
+- Updated the header and no-engine guidance to show Ollama status instead of generic provider state.
+- Reworded guide/workflow copy so Ollama setup is the primary recovery path, while advanced handoff export remains secondary.
+- Reframed `continue in any ai` as an advanced handoff/export workflow instead of the default chat path.
+- Removed Built-in Local AI scaffold copy from the visible Ollama setup workflow so the user-facing experience stays focused on Ollama.
+- Updated renderer/runtime tests to reflect the Ollama-only product contract.
+
+### Verification
+
+- Focused Ollama-only tests: PASS (`11` files / `62` tests)
+- Full `npm test`: pending end-of-task run
+- Full `npm run build`: pending end-of-task run
+- Dev smoke: pending end-of-task run
+
+### Notes
+
+- Local markdown memory, import/export, compressed memory updates, and backups remain fully available without Ollama
+- Advanced AI handoff export still exists, but it is no longer presented as the normal reply path
+

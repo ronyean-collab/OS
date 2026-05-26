@@ -10,7 +10,7 @@ export function ProviderSettings({ onClose, ...panel }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal provider-settings-modal">
         <div className="provider-modal-header">
-          <h2>AI provider</h2>
+          <h2>Ollama Setup</h2>
           <button type="button" className="secondary small-btn" onClick={onClose}>
             Close
           </button>

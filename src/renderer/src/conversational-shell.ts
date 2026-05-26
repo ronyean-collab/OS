@@ -88,20 +88,20 @@ export function buildConversationalShellCard(input: {
   const workspaceLabel = input.workspaceName?.trim() || "this workspace";
   const localAiLine =
     input.localAiDetected === true
-      ? " Start or select Ollama if you want in-app replies here."
+      ? " Select an Ollama model if you want in-app replies here."
       : " Start or select Ollama to get in-app replies here.";
 
   if (intent === "help") {
     return {
       state: "welcome",
       title: "ContinuityOS Guide",
-      body: `I can help with memory import, backups, Context Packs, Local AI setup, and project memory review for ${workspaceLabel}.`,
+      body: `I can help with Ollama setup, memory import, backups, advanced handoffs, and project memory review for ${workspaceLabel}.`,
       footer: null,
       actions: [
-        { id: "continue_any_ai", label: "Continue in Any AI", tone: "primary" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
         { id: "import_memory", label: "Import Memory" },
-        { id: "set_up_local_ai", label: "Set Up Local AI" },
         { id: "review_project_memory", label: "Review Memory" },
+        { id: "backup_export", label: "Backup / Export" },
       ],
     };
   }
@@ -109,10 +109,10 @@ export function buildConversationalShellCard(input: {
   if (intent === "next_step") {
     const nextStepBody =
       input.guidanceState === "memory_imported"
-        ? "Based on this workspace, the next step is to copy a Context Pack into any AI so the next chat can continue from the imported memory."
+        ? "Based on this workspace, the next step is to start Ollama so you can continue here, or export an advanced handoff only if you need another chat tool."
         : input.guidanceState === "context_pack_copied"
           ? "The next step is to paste the AI reply back here so I can save it into this thread and help you compress it into memory."
-          : "Based on this workspace, your next step is to either get an AI reply through Local AI or copy a Context Pack into any AI. I can also review memory or create a memory update.";
+          : "Based on this workspace, your next step is to get Ollama ready for direct replies here. I can also review memory, back up the project, or create a memory update.";
     return {
       state:
         input.guidanceState === "memory_imported"
@@ -123,10 +123,10 @@ export function buildConversationalShellCard(input: {
       title: "Next step",
       body: `${nextStepBody}${localAiLine}`,
       actions: [
-        { id: "continue_any_ai", label: "Continue in Any AI", tone: "primary" },
-        { id: "set_up_local_ai", label: "Set Up Local AI" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
         { id: "review_project_memory", label: "Review Memory" },
         { id: "create_memory_update", label: "Create Memory Update" },
+        { id: "backup_export", label: "Backup / Export" },
       ],
     };
   }
@@ -136,12 +136,12 @@ export function buildConversationalShellCard(input: {
       state: "context_pack_ready",
       title: "I saved that locally.",
       body:
-        "Local AI is not ready yet. Start or select Ollama to get in-app replies, or use a Context Pack with any AI.",
+        "Ollama is not ready yet. Start or select Ollama to get in-app replies here. Your local memory, imports, and backups are still available.",
       footer: null,
       actions: [
-        { id: "set_up_local_ai", label: "Set Up Local AI", tone: "primary" },
-        { id: "continue_any_ai", label: "Continue in Any AI" },
-        { id: "help", label: "Help" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "review_project_memory", label: "Review Memory" },
+        { id: "backup_export", label: "Backup / Export" },
       ],
     };
   }
@@ -155,8 +155,8 @@ export function buildConversationalShellCard(input: {
       actions: [
         { id: "review_project_memory", label: "Review Memory", tone: "primary" },
         { id: "create_memory_update", label: "Create Memory Update" },
-        { id: "continue_any_ai", label: "Continue in Any AI" },
         { id: "import_memory", label: "Import Memory" },
+        { id: "backup_export", label: "Backup / Export" },
       ],
     };
   }
@@ -164,12 +164,12 @@ export function buildConversationalShellCard(input: {
   return {
     state: "context_pack_ready",
     title: "I saved your message locally.",
-    body: `Local AI is not ready yet. Start or select Ollama to get in-app replies, or use a Context Pack with any AI.${localAiLine}`,
+    body: `Ollama is not ready yet. Start or select Ollama to get in-app replies here. Your local memory, imports, and backups are still available.${localAiLine}`,
     footer: null,
     actions: [
-      { id: "set_up_local_ai", label: "Set Up Local AI", tone: "primary" },
-      { id: "continue_any_ai", label: "Continue in Any AI" },
-      { id: "help", label: "Help" },
+      { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+      { id: "review_project_memory", label: "Review Memory" },
+      { id: "backup_export", label: "Backup / Export" },
     ],
   };
 }

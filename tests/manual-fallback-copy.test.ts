@@ -9,14 +9,14 @@ describe("manual fallback copy", () => {
     const fallback = buildManualFallbackState({
       threadId: "thread-12345678",
       sourceMessageId: "message-12345678",
-      error: "Choose an AI provider in Provider settings to get assistant replies.",
+      error: "Ollama is required for AI replies. Install or start Ollama, then select a local model.",
       providerConfigured: false,
     });
 
     expect(fallback?.kind).toBe("no-provider");
     expect(fallback?.message).toContain("Message saved locally.");
-    expect(fallback?.message).toContain("No AI provider is connected");
-    expect(fallback?.message).toContain("ChatGPT, Claude, Gemini");
+    expect(fallback?.message).toContain("Ollama is required");
+    expect(fallback?.message).toContain("Ollama Setup");
   });
 
   it("builds provider-unavailable guidance when a configured provider fails", () => {
@@ -29,7 +29,7 @@ describe("manual fallback copy", () => {
 
     expect(fallback?.kind).toBe("provider-unavailable");
     expect(fallback?.message).toBe(getManualFallbackMessage("provider-unavailable"));
-    expect(fallback?.message).toContain("Provider unavailable");
+    expect(fallback?.message).toContain("Ollama is unavailable");
   });
 
   it("does not create fallback guidance for real thread/workspace errors", () => {

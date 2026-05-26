@@ -16,7 +16,7 @@ type OllamaChatResponse = {
 function resolveBaseUrl(connection: string | null): string {
   const trimmed = connection?.trim();
   if (!trimmed) {
-    throw new Error("Set the Ollama base URL in Provider settings.");
+    throw new Error("Set the Ollama base URL in Ollama Setup.");
   }
   return trimmed.replace(/\/$/, "");
 }

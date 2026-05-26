@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  getActiveChatProviderDefinitions,
   getProviderDefinition,
   listProviderDefinitions,
+  listVisibleProviderDefinitions,
   providerStatusLabel,
 } from "../src/shared/provider-definitions";
 import { isProviderRuntimeReady } from "../electron/main/services/provider-runtime";
@@ -10,6 +12,11 @@ describe("provider definitions", () => {
   it("lists all supported providers", () => {
     const ids = listProviderDefinitions().map((p) => p.id);
     expect(ids).toEqual(["openai", "anthropic", "google", "openrouter", "ollama"]);
+  });
+
+  it("shows only ollama in the normal UI and active chat engine list", () => {
+    expect(listVisibleProviderDefinitions().map((p) => p.id)).toEqual(["ollama"]);
+    expect(getActiveChatProviderDefinitions().map((p) => p.id)).toEqual(["ollama"]);
   });
 
   it("openai is ready with api key url", () => {
@@ -31,8 +38,8 @@ describe("provider definitions", () => {
     expect(providerStatusLabel("setup_only")).toMatch(/runtime coming next/i);
   });
 
-  it("runtime ready only for openai in current build", () => {
-    expect(isProviderRuntimeReady("openai")).toBe(true);
+  it("runtime ready only for ollama in the normal chat flow", () => {
+    expect(isProviderRuntimeReady("openai")).toBe(false);
     expect(isProviderRuntimeReady("anthropic")).toBe(false);
     expect(isProviderRuntimeReady("ollama")).toBe(true);
   });

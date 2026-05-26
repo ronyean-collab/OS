@@ -225,11 +225,11 @@ export function ChatPanel({
       setGuideStatus(null);
       const pack = await onBuildContextPack({
         userRequest: activeRequest,
-        targetPlatform: "Any AI",
+        targetPlatform: "AI Handoff",
       });
       await navigator.clipboard.writeText(pack.text);
       setGuideStatus(
-        "Context Pack copied. Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI, then paste the reply back here.",
+        "Advanced handoff copied. Paste it into the external AI chat you want to use, then paste the reply back here.",
       );
       onContextPackCopied();
       onOpenWorkflow("paste_ai_response", {
@@ -238,7 +238,7 @@ export function ChatPanel({
       });
     } catch (error) {
       setGuideStatus(
-        error instanceof Error ? error.message : "Could not copy the Context Pack.",
+        error instanceof Error ? error.message : "Could not copy the advanced handoff.",
       );
     }
   };
@@ -250,12 +250,12 @@ export function ChatPanel({
     }
     if (action === "continue_any_ai") {
       onOpenWorkflow("continue_any_ai", { requestText: activeRequest });
-      setGuideStatus("Continue in Any AI is ready in chat.");
+      setGuideStatus("Advanced AI handoff is ready in chat.");
       return;
     }
     if (action === "show_context_pack_again") {
       onOpenWorkflow("continue_any_ai", { requestText: activeRequest });
-      setGuideStatus("Context Pack preview opened in chat.");
+      setGuideStatus("Advanced handoff preview opened in chat.");
       return;
     }
     if (action === "paste_ai_response") {
@@ -325,7 +325,7 @@ export function ChatPanel({
                 className="small-btn"
                 onClick={() => handleGuideButton("set_up_local_ai")}
               >
-                Set Up Local AI
+                Set Up Ollama
               </button>
               <button
                 type="button"
@@ -337,9 +337,9 @@ export function ChatPanel({
               <button
                 type="button"
                 className="secondary small-btn"
-                onClick={() => handleGuideButton("continue_any_ai")}
+                onClick={() => handleGuideButton("review_project_memory")}
               >
-                Continue in Any AI
+                Review Memory
               </button>
             </div>
           </div>
@@ -455,7 +455,7 @@ export function ChatPanel({
           </button>
         )}
         <p className="muted small composer-manual-hint">
-          Chat with your local AI. ContinuityOS saves and compresses memory in the background.
+          Chat with Ollama. ContinuityOS saves and compresses memory in the background.
         </p>
       </form>
     </section>

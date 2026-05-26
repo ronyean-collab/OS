@@ -16,23 +16,24 @@ describe("guided routines", () => {
     expect(card.title).toContain("ContinuityOS Guide");
     expect(labels).toContain("Continue Chatting");
     expect(labels).toContain("Import Memory");
-    expect(labels).toContain("Continue in Any AI");
-    expect(labels).toContain("Set Up Local AI");
+    expect(labels).toContain("Review Memory");
+    expect(labels).toContain("Set Up Ollama");
   });
 
-  it("post-import guidance recommends copying a Context Pack", () => {
+  it("post-import guidance recommends using Ollama or an advanced handoff", () => {
     const card = getPostImportGuidance({ importedSource: "Claude" });
 
-    expect(card.body).toContain("The next step is to copy a Context Pack");
-    expect(card.actions[0]?.label).toBe("Copy Context Pack");
-    expect(card.footer).toContain("Context Pack =");
+    expect(card.body).toContain("Start Ollama");
+    expect(card.actions[0]?.label).toBe("Set Up Ollama");
+    expect(card.actions.map((action) => action.label)).toContain("Advanced AI Handoff");
+    expect(card.footer).toBeNull();
   });
 
-  it("post-context-pack-copy guidance tells the user to paste into any AI", () => {
+  it("post-context-pack-copy guidance tells the user to paste into an external AI", () => {
     const card = getPostContextCopyGuidance();
 
-    expect(card.title).toContain("Context Pack copied");
-    expect(card.body).toContain("Paste it into ChatGPT, Claude, Gemini, Ollama");
+    expect(card.title).toContain("Advanced handoff copied");
+    expect(card.body).toContain("Paste it into the external AI chat");
     expect(card.actions.map((action) => action.label)).toContain("Paste AI Response");
   });
 
@@ -50,7 +51,7 @@ describe("guided routines", () => {
     const card = getNoProviderGuidance({ localAiDetected: true });
 
     expect(card.title).toContain("saved");
-    expect(card.body).toContain("Local AI is not ready yet");
+    expect(card.body).toContain("Ollama is required for in-app AI replies");
     expect(card.body).toContain("Start or select Ollama");
   });
 

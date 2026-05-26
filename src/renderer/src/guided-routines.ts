@@ -55,21 +55,21 @@ export function getNextStepActions(state: GuidanceState): GuidanceAction[] {
   switch (state) {
     case "memory_imported":
       return [
-        { id: "copy_context_pack", label: "Copy Context Pack", tone: "primary" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
         { id: "review_project_memory", label: "Review Imported Memory" },
         { id: "backup_export", label: "Export Backup" },
-        { id: "continue_chatting", label: "Continue Chatting" },
+        { id: "continue_any_ai", label: "Advanced AI Handoff" },
       ];
     case "context_pack_ready":
       return [
-        { id: "set_up_local_ai", label: "Set Up Local AI", tone: "primary" },
-        { id: "continue_any_ai", label: "Continue in Any AI" },
-        { id: "help", label: "Help" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "review_project_memory", label: "Review Memory" },
+        { id: "backup_export", label: "Backup / Export" },
       ];
     case "context_pack_copied":
       return [
         { id: "paste_ai_response", label: "Paste AI Response", tone: "primary" },
-        { id: "show_context_pack_again", label: "Show Context Pack Again" },
+        { id: "show_context_pack_again", label: "Show Handoff Again" },
         { id: "review_project_memory", label: "Review Project Memory" },
       ];
     case "response_saved":
@@ -86,24 +86,24 @@ export function getNextStepActions(state: GuidanceState): GuidanceAction[] {
       ];
     case "local_ai_available":
       return [
-        { id: "set_up_local_ai", label: "Set Up Local AI" },
-        { id: "continue_any_ai", label: "Continue in Any AI" },
+        { id: "set_up_local_ai", label: "Ollama Setup" },
         { id: "review_project_memory", label: "Review Project Memory" },
+        { id: "backup_export", label: "Backup / Export" },
         { id: "continue_chatting", label: "Continue Chatting", tone: "primary" },
       ];
     case "local_ai_unavailable":
       return [
-        { id: "set_up_local_ai", label: "Set Up Local AI" },
-        { id: "continue_any_ai", label: "Continue in Any AI", tone: "primary" },
-        { id: "help", label: "Help" },
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "review_project_memory", label: "Review Memory" },
+        { id: "backup_export", label: "Backup / Export" },
       ];
     case "welcome":
     default:
       return [
         { id: "continue_chatting", label: "Continue Chatting", tone: "primary" },
-        { id: "set_up_local_ai", label: "Set Up Local AI" },
+        { id: "set_up_local_ai", label: "Set Up Ollama" },
         { id: "import_memory", label: "Import Memory" },
-        { id: "continue_any_ai", label: "Continue in Any AI" },
+        { id: "review_project_memory", label: "Review Memory" },
       ];
   }
 }
@@ -113,13 +113,13 @@ export function getWorkspaceGuidance(context: GuidanceContext = {}): GuidanceCar
     context.localAiDetected === true
       ? " Ollama is available on this machine if you want to keep replies local."
       : context.localAiDetected === false
-        ? " If local AI is not ready yet, you can still continue with a Context Pack."
+        ? " If Ollama is not ready yet, ContinuityOS can still save memory, backups, and project state locally."
         : "";
 
   return {
     state: "welcome",
     title: "ContinuityOS Guide",
-    body: `I can help with memory import, backups, Context Packs, project memory review, and Local AI setup.${localAiNote}`,
+    body: `I can help with Ollama setup, memory import, backups, advanced handoffs, and project memory review.${localAiNote}`,
     footer: "Guide messages stay secondary unless you ask for help or need a workflow.",
     actions: getNextStepActions("welcome"),
   };
@@ -133,9 +133,8 @@ export function getPostImportGuidance(context: GuidanceContext = {}): GuidanceCa
   return {
     state: "memory_imported",
     title: "Memory imported.",
-    body: `${sourceNote} The next step is to copy a Context Pack so a new AI chat can pick up from here.`,
-    footer:
-      "Context Pack = what you paste into ChatGPT, Claude, Gemini, Ollama, or another AI so it can continue from your ContinuityOS memory.",
+    body: `${sourceNote} Start Ollama if you want direct replies here, or export an advanced AI handoff only if you need to continue outside ContinuityOS.`,
+    footer: null,
     actions: getNextStepActions("memory_imported"),
   };
 }
@@ -149,7 +148,7 @@ export function getNoProviderGuidance(context: GuidanceContext = {}): GuidanceCa
   return {
     state: "context_pack_ready",
     title: "I saved that locally.",
-    body: `Local AI is not ready yet. Start or select Ollama to get in-app replies, or use a Context Pack with any AI.${localAiLine}`,
+    body: `Ollama is required for in-app AI replies. Start or select Ollama to answer here.${localAiLine}`,
     footer: null,
     actions: getNextStepActions("context_pack_ready"),
   };
@@ -158,11 +157,11 @@ export function getNoProviderGuidance(context: GuidanceContext = {}): GuidanceCa
 export function getPostContextCopyGuidance(): GuidanceCard {
   return {
     state: "context_pack_copied",
-    title: "Context Pack copied.",
+    title: "Advanced handoff copied.",
     body:
-      "Done. Paste it into ChatGPT, Claude, Gemini, Ollama, or another AI. Then paste the AI reply back here and save it.",
+      "Done. Paste it into the external AI chat you want to use, then paste the reply back here and save it.",
     footer:
-      "If you want to review the exact handoff again, open the Context Pack preview or copy it again.",
+      "If you want to review the exact handoff again, open the preview or copy it again.",
     actions: getNextStepActions("context_pack_copied"),
   };
 }
@@ -193,14 +192,14 @@ export function getLocalAiGuidance(available: boolean): GuidanceCard {
   return available
     ? {
         state: "local_ai_available",
-        title: "Local AI is available.",
+        title: "Ollama is available.",
         body: "Ollama is ready. You can keep chatting here, or open setup if you want to change models.",
         actions: getNextStepActions("local_ai_available"),
       }
     : {
         state: "local_ai_unavailable",
-        title: "Local AI is not ready yet.",
-        body: "Start or select Ollama to get in-app replies, or continue with a Context Pack.",
+        title: "Ollama is not ready yet.",
+        body: "Start or select Ollama to get in-app replies. Memory, backups, and imports still work locally while Ollama is offline.",
         actions: getNextStepActions("local_ai_unavailable"),
       };
 }

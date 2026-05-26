@@ -159,12 +159,22 @@ export async function startAssistantStream(
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error: "Choose an AI provider in Provider settings to get assistant replies.",
+      error: "Ollama is required for AI replies. Install or start Ollama, then select a local model.",
     };
   }
 
   const provider = String(config.provider);
   const model = String(config.model);
+
+  if (provider !== "ollama") {
+    return {
+      streamId: null,
+      userMessage,
+      assistantMessage: null,
+      error:
+        "Ollama is the only in-app chat engine enabled. Open Ollama Setup, detect Ollama, and select a local model.",
+    };
+  }
 
   if (!isProviderRuntimeReady(provider)) {
     return {
@@ -190,12 +200,7 @@ export async function startAssistantStream(
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error:
-        provider === "ollama"
-          ? "Set the Ollama base URL in Local AI settings and confirm Ollama is running."
-          : def.requiresApiKey
-            ? `${def.displayName} is not fully configured. Add an API key in Provider settings.`
-            : providerRuntimeMessage(provider),
+      error: "Set the Ollama base URL in Ollama Setup and confirm Ollama is running.",
     };
   }
 
@@ -207,7 +212,7 @@ export async function startAssistantStream(
         streamId: null,
         userMessage,
         assistantMessage: null,
-        error: "Set the Ollama base URL in Provider settings.",
+        error: "Set the Ollama base URL in Ollama Setup.",
       };
     }
   }

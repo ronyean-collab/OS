@@ -35,7 +35,7 @@ describe("local AI / Ollama", () => {
     const status = await getLocalAiStatus(db, workspace.id);
     expect(status.detected).toBe(false);
     expect(status.state).toBe("ollama_not_detected");
-    expect(status.message).toMatch(/Manual Mode/i);
+    expect(status.message).toMatch(/Install or start Ollama/i);
     expect(status.models).toEqual([]);
   });
 

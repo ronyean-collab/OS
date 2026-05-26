@@ -56,7 +56,7 @@ export async function getLocalAiStatus(
       selectedModel,
       message:
         models.length > 0
-          ? "Local AI is ready. ContinuityOS can answer using your selected local model."
+          ? "Ollama is ready. ContinuityOS can answer here with your selected local model."
           : "Ollama is reachable, but no local models were listed yet. Run `ollama pull <model>` first.",
       error: null,
     };
@@ -71,8 +71,8 @@ export async function getLocalAiStatus(
       selectedModel,
       message:
         /HTTP|returned/i.test(errorMessage)
-          ? "Ollama responded with an error. Retry, verify the base URL, or continue with a Context Pack."
-          : "Local AI is not running yet. Install/start Ollama or continue with Manual Mode.",
+          ? "Ollama responded with an error. Retry and verify the base URL before sending another message."
+          : "Ollama is not running yet. Install or start Ollama to enable in-app AI replies.",
       error: errorMessage,
     };
   }

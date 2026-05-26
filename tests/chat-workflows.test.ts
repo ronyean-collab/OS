@@ -46,15 +46,13 @@ describe("chat workflows", () => {
     });
   });
 
-  it("routes help to guidance and adapts what-do-i-do-next after import", () => {
+  it("routes help and what-do-i-do-next into guidance", () => {
     expect(routeChatIntent("help")).toEqual({ kind: "guidance" });
     expect(routeChatIntent("what do I do next", "memory_imported")).toEqual({
-      kind: "workflow",
-      workflow: "continue_any_ai",
+      kind: "guidance",
     });
     expect(routeChatIntent("what do I do next", "context_pack_copied")).toEqual({
-      kind: "workflow",
-      workflow: "paste_ai_response",
+      kind: "guidance",
     });
   });
 
@@ -109,8 +107,8 @@ describe("chat workflows", () => {
 
     expect(session.kind).toBe("continue_any_ai");
     expect(session.sourceUserMessageId).toBe("message-12345678");
-    expect(definition.title).toBe("Continue in Any AI");
-    expect(definition.prompt).toContain("Context Pack");
+    expect(definition.title).toBe("Advanced AI Handoff");
+    expect(definition.prompt).toContain("advanced project handoff");
   });
 
   it("builds a safe request hint with null inputs and ignores workflow commands", () => {

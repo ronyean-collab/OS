@@ -10,8 +10,6 @@ import {
   cancelStream,
   startAssistantStream,
 } from "../electron/main/services/stream-runtime";
-import { MemorySecureStorageStub } from "../electron/main/secure-storage/memory-stub";
-import { __setSecureStorageForTests } from "../electron/main/secure-storage";
 import { listMessages, insertMessage } from "../electron/main/services/message-service";
 import {
   createThread,
@@ -19,6 +17,7 @@ import {
   updateContinuitySummary,
 } from "../electron/main/services/workspace-service";
 import { DEFAULT_CONTEXT_MESSAGE_LIMIT } from "../electron/main/services/context-assembly";
+import { saveProviderConfig } from "../electron/main/services/provider-service";
 
 const mockSender = {
   isDestroyed: () => false,
@@ -32,13 +31,12 @@ describe("stream runtime", () => {
     resetProviderAdapters();
     const mock = new MockProviderAdapter();
     mock.chunks = ["Partial", " ", "response"];
-    registerProviderAdapter("openai", mock);
+    registerProviderAdapter("ollama", mock);
     vi.clearAllMocks();
   });
 
   afterEach(() => {
     resetProviderAdapters();
-    __setSecureStorageForTests(null);
     while (cleanups.length) cleanups.pop()?.();
   });
 
@@ -49,18 +47,9 @@ describe("stream runtime", () => {
   }
 
   function setupProvider(db: ReturnType<typeof session>) {
-    const stub = new MemorySecureStorageStub();
-    __setSecureStorageForTests(stub);
     const ws = createWorkspace(db, "Stream WS");
     const thread = createThread(db, ws.id, "Chat");
-    const ref = stub.buildRef(ws.id, "openai");
-    const stored = stub.setKey(ref, "sk-test");
-    expect(stored.ok).toBe(true);
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO provider_configs (id, workspace_id, provider, model, enabled, secure_key_ref, created_at, updated_at)
-       VALUES ('pc1', ?, 'openai', 'gpt-4o-mini', 1, ?, ?, ?)`,
-    ).run(ws.id, ref, now, now);
+    saveProviderConfig(db, ws.id, "ollama", "llama3.1", "", "http://localhost:11434");
     return { ws, thread };
   }
 
@@ -89,7 +78,7 @@ describe("stream runtime", () => {
   it("preserves partial content on cancellation", async () => {
     const db = session();
     const { thread } = setupProvider(db);
-    const mock = getProviderAdapter("openai") as MockProviderAdapter;
+    const mock = getProviderAdapter("ollama") as MockProviderAdapter;
     mock.chunks = ["One", " Two", " Three"];
     mock.delayMs = 30;
 
@@ -127,7 +116,7 @@ describe("stream runtime", () => {
       });
     }
 
-    const mock = getProviderAdapter("openai") as MockProviderAdapter;
+    const mock = getProviderAdapter("ollama") as MockProviderAdapter;
     const result = await startAssistantStream(db, mockSender, {
       threadId: thread.id,
       content: "Latest user turn",
@@ -166,7 +155,7 @@ describe("stream runtime", () => {
 
     expect(result.userMessage?.content).toBe("Hello");
     expect(result.assistantMessage).toBeNull();
-    expect(result.error).toMatch(/Choose an AI provider/i);
+    expect(result.error).toMatch(/Ollama is required/i);
     expect(listMessages(db, thread.id)).toHaveLength(1);
     expect(listMessages(db, thread.id)[0].content).toBe("Hello");
   });
@@ -174,7 +163,7 @@ describe("stream runtime", () => {
   it("records failure timeline event on stream error", async () => {
     const db = session();
     const { thread } = setupProvider(db);
-    const mock = getProviderAdapter("openai") as MockProviderAdapter;
+    const mock = getProviderAdapter("ollama") as MockProviderAdapter;
     mock.shouldFail = true;
 
     await startAssistantStream(db, mockSender, {

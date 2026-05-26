@@ -100,9 +100,6 @@ export function App() {
   const [snapshots, setSnapshots] = useState<SnapshotRecord[]>([]);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(null);
   const [opsTab, setOpsTab] = useState<OpsTabId>("overview");
-  const [settingsProviderId, setSettingsProviderId] = useState<string | undefined>(
-    undefined,
-  );
   const [showProjectTools, setShowProjectTools] = useState(false);
   const [showArchivedThreads, setShowArchivedThreads] = useState(false);
   const [showDeletedThreads, setShowDeletedThreads] = useState(false);
@@ -148,8 +145,7 @@ export function App() {
 
   const isProviderConfigured = (config: ProviderConfig | null) => {
     if (!config?.enabled) return false;
-    if (config.provider === "ollama") return true;
-    return config.hasApiKey;
+    return config.provider === "ollama";
   };
 
   const updateGuidance = useCallback(
@@ -760,7 +756,7 @@ export function App() {
     targetPlatform: string;
   }): Promise<UniversalContextPackResult> => {
     if (!workspace || !activeThread) {
-      throw new Error("Open a thread before building a Context Pack.");
+      throw new Error("Open a thread before building an advanced AI handoff.");
     }
     const result = await continuity.buildContextPack({
       workspaceId: workspace.id,
@@ -810,6 +806,9 @@ export function App() {
     baseUrl: string,
   ) => {
     if (!workspace) return;
+    if (provider !== "ollama") {
+      throw new Error("Ollama is the only in-app chat engine enabled in this build.");
+    }
     try {
       const config = await continuity.saveProviderConfig(
         workspace.id,
@@ -819,7 +818,6 @@ export function App() {
         baseUrl || null,
       );
       setProviderConfig(config);
-      setSettingsProviderId(undefined);
       await refreshOpsPanels(workspace.id);
     } catch (err) {
       if (import.meta.env.DEV) {
@@ -856,6 +854,13 @@ export function App() {
         ok: false,
         status: "unknown_error" as const,
         message: "No workspace loaded.",
+      };
+    }
+    if (provider !== "ollama") {
+      return {
+        ok: false,
+        status: "adapter_not_ready" as const,
+        message: "Ollama is the only in-app chat engine enabled in this build.",
       };
     }
     return continuity.testProviderConnection(workspace.id, {
@@ -1077,20 +1082,29 @@ export function App() {
   };
 
   const providerSendEnabled =
-    providerConfig != null &&
+    providerConfig?.provider === "ollama" &&
     isProviderConfigured(providerConfig) &&
     providerConfig.runtimeReady;
-  const providerBadge = providerConfig
-    ? `${providerConfig.displayName} · ${providerConfig.model}`
+  const providerBadge = providerSendEnabled
+    ? `Ollama local AI · ${providerConfig?.model ?? "UNKNOWN"}`
     : null;
   const modelBadge = providerSendEnabled ? providerConfig?.model ?? null : null;
+  const ollamaStatusLabel =
+    providerSendEnabled && providerConfig?.model
+      ? `Ollama local AI · ${providerConfig.model}`
+      : localAiStatus?.state === "ollama_ready"
+        ? "Ollama detected · select a model to chat"
+        : localAiStatus?.state === "ollama_detected_no_model"
+          ? "Ollama detected · no model available yet"
+          : localAiStatus?.state === "ollama_error"
+            ? "Ollama error"
+            : "Ollama not connected";
 
   const providerPanelProps =
     workspace != null
       ? {
           workspaceId: workspace.id,
           initial: providerConfig,
-          initialProviderId: settingsProviderId,
           onSave: handleSaveProvider,
           onTest: handleTestProvider,
           onRemoveKey: handleRemoveProviderKey,
@@ -1232,8 +1246,7 @@ export function App() {
 
       <WorkspaceHeader
         workspace={workspace}
-        providerBadge={providerBadge}
-        providerRuntimeReady={providerConfig?.runtimeReady ?? false}
+        ollamaStatusLabel={ollamaStatusLabel}
         projectToolsOpen={showProjectTools}
         onToggleProjectTools={() => setShowProjectTools((value) => !value)}
       />

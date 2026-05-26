@@ -52,7 +52,7 @@ describe("multi-provider setup", () => {
     expect(result.status).toBe("adapter_not_ready");
   });
 
-  it("non-ready provider stream does not create assistant placeholder", async () => {
+  it("legacy cloud provider configs no longer activate in-app chat", async () => {
     const db = session();
     const ws = createWorkspace(db, "No runtime");
     saveProviderConfig(db, ws.id, "anthropic", "claude-3-5-haiku-latest", "sk-ant-x", "");
@@ -66,17 +66,17 @@ describe("multi-provider setup", () => {
     );
     expect(result.userMessage).toBeTruthy();
     expect(result.assistantMessage).toBeNull();
-    expect(result.error).toMatch(/runtime support is coming next/i);
+    expect(result.error).toMatch(/Ollama is the only in-app chat engine enabled/i);
   });
 
-  it("openai config persists enriched fields", () => {
+  it("legacy openai config still persists, but is no longer runtime-ready", () => {
     const db = session();
     const ws = createWorkspace(db, "OpenAI");
     saveProviderConfig(db, ws.id, "openai", "gpt-4.1-mini", "sk-persist-1", null);
     const loaded = getProviderConfig(db, ws.id);
     expect(loaded?.displayName).toBe("OpenAI");
     expect(loaded?.hasApiKey).toBe(true);
-    expect(loaded?.runtimeReady).toBe(true);
+    expect(loaded?.runtimeReady).toBe(false);
     expect(loaded?.model).toBe("gpt-4.1-mini");
   });
 });

@@ -98,7 +98,7 @@ export function ContinuityImportPanel({
     try {
       await navigator.clipboard.writeText(CONTINUITY_IMPORT_FILE_PROMPT);
       setStatus(
-        "Markdown memory prompt copied. Paste it into ChatGPT, Claude, Gemini, Cursor, or another AI.",
+        "Markdown memory prompt copied. Paste it into the AI chat you want to export from.",
       );
       setError(null);
     } catch (err) {
@@ -196,8 +196,8 @@ export function ContinuityImportPanel({
         <div>
           <h3>Markdown Memory Files</h3>
           <p className="muted small">
-            Import project state from any AI chat, export a clean markdown handoff, and
-            review what ContinuityOS will carry into the next Context Pack.
+            Import project state from another AI chat, export a clean markdown handoff, and review
+            what ContinuityOS will carry into future Ollama chats or advanced handoffs.
           </p>
         </div>
       </div>
@@ -212,8 +212,8 @@ export function ContinuityImportPanel({
           <div>
             <h4>Create a Markdown Memory File from your current AI chat</h4>
             <p className="muted small">
-              Use any AI. Paste the prompt below into your current chat, then paste the returned
-              markdown back here for preview and review.
+              Paste the prompt below into your current AI chat, then paste the returned markdown
+              back here for preview and review.
             </p>
           </div>
           <button type="button" className="secondary small-btn" onClick={() => void copyPrompt()}>
@@ -269,8 +269,8 @@ export function ContinuityImportPanel({
               Generate markdown-first handoff files from ContinuityOS without requiring a provider.
             </p>
             <p className="muted small">
-              Continue in Any AI uses a Context Pack. Use these markdown exports when you want a
-              reusable memory update or a reviewable project handoff file.
+              Advanced AI Handoff uses a project handoff export. Use these markdown exports when you
+              want a reusable memory update or a reviewable handoff file.
             </p>
           </div>
         </div>
@@ -438,7 +438,8 @@ export function ContinuityImportPanel({
           <div>
             <h4>Memory / Project State</h4>
             <p className="muted small">
-              Review what was imported or generated and what future Context Packs will include.
+              Review what was imported or generated and what future Ollama chats or advanced
+              handoffs will include.
             </p>
           </div>
         </div>
@@ -466,7 +467,7 @@ export function ContinuityImportPanel({
                 ))}
               </ul>
               <p className="muted small">
-                Future Context Packs will include this project state, plus the latest continuity
+                Future advanced handoffs will include this project state, plus the latest continuity
                 summary and recent conversation context.
               </p>
             </div>
@@ -497,8 +498,8 @@ export function ContinuityImportPanel({
       {status && <p className="muted small">{status}</p>}
       {status && status.toLowerCase().includes("markdown memory imported") && (
         <p className="muted small">
-          Next: Copy a Context Pack and paste it into any AI so the next chat can continue from
-          this memory.
+          Next: Start Ollama to continue here, or export an advanced AI handoff if you need another
+          chat tool to continue from this memory.
         </p>
       )}
       {error && <p className="stream-error">{error}</p>}

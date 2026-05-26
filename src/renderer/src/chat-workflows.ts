@@ -161,12 +161,6 @@ export function routeChatIntent(
   if (
     hasAnyPhrase(normalized, ["what do i do next", "what next", "help", "show help"])
   ) {
-    if (guidanceState === "memory_imported") {
-      return { kind: "workflow", workflow: "continue_any_ai" };
-    }
-    if (guidanceState === "context_pack_copied") {
-      return { kind: "workflow", workflow: "paste_ai_response" };
-    }
     return GUIDANCE_ROUTE;
   }
 
@@ -186,7 +180,7 @@ export function createChatWorkflowSession(
     sourceUserMessageId: options.sourceUserMessageId ?? null,
     requestText: options.requestText ?? null,
     note: options.note ?? null,
-    targetPlatform: options.targetPlatform ?? "Any AI",
+    targetPlatform: options.targetPlatform ?? "AI Handoff",
   };
 }
 
@@ -241,17 +235,17 @@ export function getChatWorkflowDefinition(kind: ActiveChatWorkflow): ChatWorkflo
       };
     case "continue_any_ai":
       return {
-        title: "Continue in Any AI",
+        title: "Advanced AI Handoff",
         prompt:
-          "I can build a Context Pack from this workspace and thread so another AI can continue from your current project memory.",
-        primaryActionLabel: "Copy Context Pack",
+          "I can export an advanced project handoff from this workspace and thread if you need to continue outside ContinuityOS.",
+        primaryActionLabel: "Copy Project Handoff",
         secondaryActionLabel: "Show Preview",
       };
     case "paste_ai_response":
       return {
         title: "Paste AI Response",
         prompt:
-          "Paste the reply from ChatGPT, Claude, Gemini, Ollama, or another AI below and I will save it into this thread.",
+          "Paste a reply from an external AI below and I will save it into this thread without duplicating your user message.",
         inputPlaceholder: "Paste the AI response here...",
         primaryActionLabel: "Save Response",
         secondaryActionLabel: "Cancel",
@@ -260,13 +254,13 @@ export function getChatWorkflowDefinition(kind: ActiveChatWorkflow): ChatWorkflo
       return {
         title: "Review Project Memory",
         prompt:
-          "Here is the latest project memory ContinuityOS can carry into the next Context Pack.",
+          "Here is the latest project memory ContinuityOS can carry into the next Ollama chat or advanced handoff export.",
       };
     case "backup_export":
       return {
         title: "Back Up / Export",
         prompt:
-          "I can help you export a markdown backup right here, or you can open the full backup tools for the larger workspace export.",
+          "I can help you export markdown backups right here, or open the larger backup tools when you need a full workspace export.",
       };
     case "create_memory_update":
       return {
@@ -276,9 +270,9 @@ export function getChatWorkflowDefinition(kind: ActiveChatWorkflow): ChatWorkflo
       };
     case "setup_local_ai":
       return {
-        title: "Set Up Local AI",
+        title: "Ollama Setup",
         prompt:
-          "Local AI lets ContinuityOS answer without API credits. I can check whether Ollama is reachable on this machine.",
+          "Ollama is required for in-app AI replies. I can check whether Ollama is reachable on this machine and help you select a local model.",
       };
   }
 }

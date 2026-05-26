@@ -23,6 +23,8 @@ export type ProviderDefinition = {
   billingNote: string;
   privacyNote: string;
   status: ProviderDefinitionStatus;
+  activeChatEngine: boolean;
+  visibleInNormalUi: boolean;
 };
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
@@ -54,6 +56,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     privacyNote:
       "Your key is stored only in OS secure storage on this device — never in the SQLite database.",
     status: "ready",
+    activeChatEngine: false,
+    visibleInNormalUi: false,
   },
   {
     id: "anthropic",
@@ -82,6 +86,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     privacyNote:
       "Keys stay in OS secure storage locally. ContinuityOS does not send keys to our servers.",
     status: "setup_only",
+    activeChatEngine: false,
+    visibleInNormalUi: false,
   },
   {
     id: "google",
@@ -110,6 +116,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     privacyNote:
       "Keys are stored locally in OS secure storage, not in your continuity database.",
     status: "setup_only",
+    activeChatEngine: false,
+    visibleInNormalUi: false,
   },
   {
     id: "openrouter",
@@ -138,6 +146,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     privacyNote:
       "Your key is kept in OS secure storage. Requests will go to OpenRouter when runtime is enabled.",
     status: "setup_only",
+    activeChatEngine: false,
+    visibleInNormalUi: false,
   },
   {
     id: "ollama",
@@ -166,6 +176,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     privacyNote:
       "Messages stay on your device when Ollama runs locally. No API key is stored.",
     status: "ready",
+    activeChatEngine: true,
+    visibleInNormalUi: true,
   },
 ];
 
@@ -183,6 +195,16 @@ export function getProviderDefinition(providerId: string): ProviderDefinition {
 export function listProviderDefinitions(): ProviderDefinition[] {
   return [...PROVIDER_DEFINITIONS];
 }
+
+export function listVisibleProviderDefinitions(): ProviderDefinition[] {
+  return PROVIDER_DEFINITIONS.filter((provider) => provider.visibleInNormalUi);
+}
+
+export function listActiveChatProviderDefinitions(): ProviderDefinition[] {
+  return PROVIDER_DEFINITIONS.filter((provider) => provider.activeChatEngine);
+}
+
+export const getActiveChatProviderDefinitions = listActiveChatProviderDefinitions;
 
 export function providerStatusLabel(status: ProviderDefinitionStatus): string {
   switch (status) {

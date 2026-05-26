@@ -67,7 +67,7 @@ type Props = {
   }) => Promise<LocalAiStatus | null>;
 };
 
-const TARGET_OPTIONS = ["Any AI", "ChatGPT", "Claude", "Gemini", "OpenRouter", "Ollama"];
+const TARGET_OPTIONS = ["AI Handoff", "ChatGPT", "Claude", "Gemini", "Other AI"];
 
 function triggerMarkdownDownload(fileName: string, markdown: string): void {
   const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
@@ -117,7 +117,7 @@ export function ChatWorkflowPanel({
 
   const [contextPack, setContextPack] = useState<UniversalContextPackResult | null>(null);
   const [showContextPackPreview, setShowContextPackPreview] = useState(false);
-  const [targetPlatform, setTargetPlatform] = useState(workflow.targetPlatform || "Any AI");
+  const [targetPlatform, setTargetPlatform] = useState(workflow.targetPlatform || "AI Handoff");
 
   const [assistantResponse, setAssistantResponse] = useState("");
   const [memoryRecord, setMemoryRecord] = useState<MarkdownMemoryRecordSummary | null>(null);
@@ -169,7 +169,7 @@ export function ChatWorkflowPanel({
       setEmbeddedLocalAiStatus(null);
     }
 
-    setTargetPlatform(workflow.targetPlatform || "Any AI");
+    setTargetPlatform(workflow.targetPlatform || "AI Handoff");
   }, [workflow.kind, workflow.note, workflow.targetPlatform, workflowTick]);
 
   useEffect(() => {
@@ -212,7 +212,6 @@ export function ChatWorkflowPanel({
     }
 
     void refreshLocalAi();
-    void refreshEmbeddedLocalAi();
   }, [workflow.kind, workflowTick]);
 
   useEffect(() => {
@@ -339,11 +338,10 @@ export function ChatWorkflowPanel({
       await onApplyContinuityImport({ text: importText, mode });
       setImportPreview(null);
       setImportText("");
-      onOpenWorkflow("continue_any_ai", {
-        requestText: requestTextHint,
-        note:
-          "Memory imported. Next, copy a Context Pack so another AI can continue from the updated workspace.",
-      });
+      onClose();
+      setWorkflowStatus(
+        "Memory imported. Start Ollama to answer here, or open Backup / Export if you need an advanced handoff.",
+      );
     } catch (error) {
       setWorkflowError(
         error instanceof Error ? error.message : "Could not apply the markdown memory file.",
@@ -365,13 +363,13 @@ export function ChatWorkflowPanel({
   }
 
   async function handleCopyContextPack() {
-    setBusyLabel("Building Context Pack...");
+    setBusyLabel("Building AI handoff...");
     setWorkflowError(null);
     try {
       const built = await ensureContextPack();
       await navigator.clipboard.writeText(built.text);
       setWorkflowStatus(
-        `Done. Paste that Context Pack into ${built.targetPlatform}. When it replies, paste the answer back here and I will save it to this thread.`,
+        `Advanced handoff copied. Paste it into ${built.targetPlatform}, then paste the reply back here and I will save it to this thread.`,
       );
       onContextPackCopied();
       onOpenWorkflow("paste_ai_response", {
@@ -379,11 +377,11 @@ export function ChatWorkflowPanel({
         requestText: activeRequest,
         targetPlatform,
         note:
-          "The Context Pack is copied. Paste it into another AI, then paste the reply back here.",
+          "The advanced handoff is copied. Paste it into another AI, then paste the reply back here.",
       });
     } catch (error) {
       setWorkflowError(
-        error instanceof Error ? error.message : "Could not copy the Context Pack.",
+        error instanceof Error ? error.message : "Could not copy the AI handoff.",
       );
     } finally {
       setBusyLabel(null);
@@ -400,10 +398,10 @@ export function ChatWorkflowPanel({
     try {
       await ensureContextPack();
       setShowContextPackPreview(true);
-      setWorkflowStatus("Context Pack preview is ready below.");
+      setWorkflowStatus("Advanced handoff preview is ready below.");
     } catch (error) {
       setWorkflowError(
-        error instanceof Error ? error.message : "Could not build the Context Pack preview.",
+        error instanceof Error ? error.message : "Could not build the AI handoff preview.",
       );
     } finally {
       setBusyLabel(null);
@@ -605,7 +603,7 @@ export function ChatWorkflowPanel({
       {workflow.kind === "continue_any_ai" && (
         <div className="chat-workflow-stack">
           <label className="chat-workflow-field">
-            <span>Target AI</span>
+            <span>External target</span>
             <select
               value={targetPlatform}
               onChange={(event) => setTargetPlatform(event.target.value)}
@@ -627,7 +625,7 @@ export function ChatWorkflowPanel({
               disabled={disabled || streaming || busyLabel != null || !activeRequest}
               onClick={() => void handleCopyContextPack()}
             >
-              {busyLabel === "Building Context Pack..." ? "Preparing..." : "Copy Context Pack"}
+              {busyLabel === "Building AI handoff..." ? "Preparing..." : "Copy Project Handoff"}
             </button>
             <button
               type="button"
@@ -669,7 +667,7 @@ export function ChatWorkflowPanel({
           </div>
           {showContextPackPreview && contextPack && (
             <label className="chat-workflow-field">
-              <span>Context Pack preview</span>
+              <span>Project handoff preview</span>
               <textarea readOnly rows={14} value={contextPack.text} />
             </label>
           )}
@@ -803,7 +801,7 @@ export function ChatWorkflowPanel({
                 })
               }
             >
-              Copy Context Pack
+              Advanced AI Handoff
             </button>
           </div>
         </div>
@@ -838,7 +836,8 @@ export function ChatWorkflowPanel({
           </div>
           <p className="muted small">
             If you only need a portable markdown memory file, the export buttons above keep you in
-            chat. Use Full Backup Tools for the larger workspace backup.
+            chat. Export AI Handoff .md is the advanced external handoff option. Use Full Backup
+            Tools for the larger workspace backup.
           </p>
         </div>
       )}
@@ -942,7 +941,7 @@ export function ChatWorkflowPanel({
       {workflow.kind === "setup_local_ai" && (
         <div className="chat-workflow-stack">
           <section className="chat-workflow-preview">
-            <h4>Local AI status</h4>
+            <h4>Ollama status</h4>
             <dl className="continuity-import-stats">
               <dt>Detected</dt>
               <dd>{localAiStatus?.detected ? "Yes" : "No"}</dd>
@@ -959,46 +958,18 @@ export function ChatWorkflowPanel({
             </p>
           </section>
           <section className="chat-workflow-preview">
-            <h4>Built-in Local AI</h4>
-            <dl className="continuity-import-stats">
-              <dt>Status</dt>
-              <dd>{embeddedLocalAiStatus?.state ?? "not_configured"}</dd>
-              <dt>Installed models</dt>
-              <dd>{embeddedLocalAiStatus?.installedModelCount ?? 0}</dd>
-              <dt>Model folder</dt>
-              <dd>{embeddedLocalAiStatus?.modelDirectory ?? "UNKNOWN"}</dd>
-              <dt>Selected model</dt>
-              <dd>{embeddedLocalAiStatus?.selectedModelId ?? "None yet"}</dd>
-            </dl>
+            <h4>Install / start Ollama</h4>
+            <ol className="chat-workflow-list">
+              <li>Install Ollama and start the local server.</li>
+              <li>
+                Pull a model with <span className="mono">ollama pull llama3.1</span>.
+              </li>
+              <li>Return here, click Detect Ollama, then select the model you want to use.</li>
+            </ol>
             <p className="muted small">
-              {embeddedLocalAiStatus?.message ??
-                "ContinuityOS is designed to answer locally. Models live on your computer, and your project memory stays local."}
+              ContinuityOS now uses Ollama as the only in-app chat engine. Local memory, backups,
+              and markdown portability still work while Ollama is offline.
             </p>
-            <p className="muted small">
-              Choose-file support is intentionally deferred in this build. Use Ollama for now, or
-              keep a local model ready for a future embedded release.
-            </p>
-            <div className="chat-workflow-actions">
-              <button type="button" className="secondary" disabled>
-                Choose Local Model File
-              </button>
-              <button type="button" className="secondary" disabled>
-                Show Model Folder
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  setWorkflowStatus(
-                    localAiStatus?.detected
-                      ? "Ollama is the active local AI path in this build."
-                      : "Built-in Local AI is scaffolded, but Ollama is still the working local path today.",
-                  )
-                }
-              >
-                Use Ollama Instead
-              </button>
-            </div>
           </section>
           {localAiStatus?.models?.length ? (
             <label className="chat-workflow-field">
@@ -1043,7 +1014,7 @@ export function ChatWorkflowPanel({
               }
               onClick={() => void handleUseLocalAi()}
             >
-              Use Local AI
+              Use Ollama for Chat
             </button>
             <button
               type="button"
@@ -1051,23 +1022,10 @@ export function ChatWorkflowPanel({
               disabled={disabled || busyLabel != null}
               onClick={() => onOpenProjectTools("local-ai")}
             >
-              Open Local AI Tools
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={disabled || busyLabel != null}
-              onClick={() =>
-                onOpenWorkflow("continue_any_ai", {
-                  sourceUserMessageId: workflow.sourceUserMessageId,
-                  requestText: requestTextHint,
-                })
-              }
-            >
-              Continue with Context Pack
+              Open Ollama Tools
             </button>
             <button type="button" className="secondary small-btn" onClick={onClose}>
-              Continue with Manual Mode
+              Close
             </button>
           </div>
         </div>

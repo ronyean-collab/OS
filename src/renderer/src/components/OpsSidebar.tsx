@@ -60,7 +60,7 @@ const TABS: { id: OpsTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "timeline", label: "Timeline" },
   { id: "snapshots", label: "Snapshots" },
-  { id: "provider", label: "AI" },
+  { id: "provider", label: "Ollama" },
 ];
 
 export function OpsSidebar({
@@ -150,11 +150,12 @@ export function OpsSidebar({
         <div>
           <h2>Project tools</h2>
           <p className="muted small">
-            Manual Mode is the default. Provider setup and recovery tools are optional.
+            Ollama powers direct chat. Import/export, compressed memory, diagnostics, and recovery
+            tools stay available here.
           </p>
           <p className="muted small">
-            Context Pack = what you paste into another AI so it can continue from your
-            ContinuityOS memory.
+            Advanced AI handoff exports stay available here, but they are no longer the normal chat
+            path.
           </p>
         </div>
         <button type="button" className="secondary small-btn" onClick={onClose}>

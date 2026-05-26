@@ -418,3 +418,50 @@ Manual verification:
 Risks still open:
 - Live bubble rendering not visually verified in Electron during this session
 - Real Ollama interaction still needs manual confirmation
+
+================================================================================
+ADDENDUM — 2026-05-26 OLLAMA-ONLY CHAT ENGINE
+================================================================================
+
+Goal:
+- Simplify ContinuityOS so Ollama is the only active in-app chat engine, while
+  keeping local markdown memory, compressed memory, backup/export, and advanced
+  handoff tools.
+
+What changed:
+- Restricted normal direct-chat runtime to Ollama only.
+- Added visibility metadata for provider definitions so only Ollama appears in
+  the normal UI and active chat engine list.
+- Kept legacy cloud-provider definitions/config plumbing for compatibility, but
+  removed them from the visible product flow.
+- Replaced the generic provider chooser with a dedicated `Ollama Setup` panel.
+- Updated the workspace header to show Ollama status instead of generic provider
+  status.
+- Updated no-engine guidance so the user is told to install/start Ollama rather
+  than choose a cloud provider.
+- Repositioned `continue in any ai` / Context Pack flow as an advanced handoff
+  workflow rather than the default reply path.
+- Removed visible Built-in Local AI scaffold copy from the main setup workflow
+  so the user-facing setup path stays focused on Ollama.
+- Updated stream/runtime tests to use Ollama as the active mocked engine.
+
+Automated verification:
+- Focused vitest:
+  local-ai / stream-runtime / chat-workflows / conversational-shell /
+  memory-compression / manual-context-pack / continuity-import-file /
+  provider-definitions / provider-multi / provider-setup / manual-fallback-copy
+  => PASS (11 files / 62 tests)
+
+Manual verification:
+- Not performed in this addendum session.
+- Manual pass should confirm:
+  1. no cloud-provider setup appears in normal UI
+  2. header shows Ollama status
+  3. no-Ollama send stays calm and local
+  4. real Ollama reply saves as a normal assistant bubble
+  5. advanced handoff export remains secondary
+
+Risks still open:
+- Real Ollama detection/model selection still needs live manual verification
+- Renderer UI changes were not visually confirmed in Electron during this
+  headless session

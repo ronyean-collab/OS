@@ -9,13 +9,13 @@ export type ManualFallbackState = {
 
 const THREAD_OR_WORKSPACE_ERROR_RE = /thread|workspace/i;
 const NO_PROVIDER_ERROR_RE =
-  /choose an ai provider|provider settings|not fully configured|setup|base url/i;
+  /ollama is required|ollama setup|base url|only in app chat engine enabled|not fully configured/i;
 
 export function getManualFallbackMessage(kind: ManualFallbackKind): string {
   if (kind === "provider-unavailable") {
-    return "Message saved locally. Provider unavailable, but you can still continue in any AI with a Context Pack.";
+    return "Message saved locally. Ollama is unavailable right now, so review memory or open Ollama Setup before sending another request.";
   }
-  return "Message saved locally. No AI provider is connected, so ContinuityOS will guide you through the next step. Copy the Context Pack, paste it into ChatGPT, Claude, Gemini, Ollama, or another AI, then paste the reply back here.";
+  return "Message saved locally. Ollama is required for in-app AI replies, so ContinuityOS will guide you through Ollama Setup while your local memory and backups remain available.";
 }
 
 export function buildManualFallbackState(input: {
