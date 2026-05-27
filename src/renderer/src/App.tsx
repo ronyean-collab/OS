@@ -52,6 +52,15 @@ import {
   type ChatWorkflowSession,
 } from "./chat-workflows";
 import { buildChatFailureCard, buildConversationalShellCard } from "./conversational-shell";
+import {
+  buildProjectMemorySnapshot,
+  buildResumeCard,
+  shouldSuggestMemoryUpdate,
+} from "./project-memory";
+import { ProjectMemoryDashboard } from "./components/ProjectMemoryDashboard";
+import { ResumeCard } from "./components/ResumeCard";
+import { MemoryUpdateSuggestion } from "./components/MemoryUpdateSuggestion";
+import type { MemoryCompressionDraft } from "@shared/types";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -136,6 +145,12 @@ export function App() {
   );
   const [opsFocusTarget, setOpsFocusTarget] = useState<OpsFocusTarget | null>(null);
   const [opsFocusTick, setOpsFocusTick] = useState(0);
+  // Consumer memory state
+  const [memoryDraft, setMemoryDraft] = useState<MemoryCompressionDraft | null>(null);
+  const [resumeCardDismissed, setResumeCardDismissed] = useState(false);
+  const [memoryUpdateSuggestionVisible, setMemoryUpdateSuggestionVisible] = useState(false);
+  const [memoryUpdateSuggestionLastAt, setMemoryUpdateSuggestionLastAt] = useState<number | null>(null);
+  const [messagesSinceLastUpdate, setMessagesSinceLastUpdate] = useState(0);
   const importInputRef = useRef<HTMLInputElement>(null);
   const encryptedImportInputRef = useRef<HTMLInputElement>(null);
   const activeStreamIdRef = useRef<string | null>(null);
@@ -213,10 +228,10 @@ export function App() {
   const openProjectToolsFromChat = useCallback(
     (target: OpsFocusTarget) => {
       if (target === "local-ai") {
-        focusProjectTools("provider", target);
+        focusProjectTools("local-ai", target);
         return;
       }
-      focusProjectTools("overview", target);
+      focusProjectTools("overview" as OpsTabId, target);
     },
     [focusProjectTools],
   );
@@ -315,6 +330,17 @@ export function App() {
     setLocalAiStatus(nextLocalAiStatus);
     setEmbeddedLocalAiStatus(nextEmbeddedLocalAiStatus);
     await refreshOpsPanels(ws.id);
+
+    // Load memory draft for consumer memory dashboard
+    setResumeCardDismissed(false);
+    setMessagesSinceLastUpdate(0);
+    setMemoryUpdateSuggestionVisible(false);
+    try {
+      const draft = await continuity.previewMemoryCompression({ workspaceId: ws.id, threadId: null });
+      setMemoryDraft(draft);
+    } catch {
+      setMemoryDraft(null);
+    }
 
     const repair = await continuity.repairActiveThread(ws.id);
     const threadList = await reloadThreads(ws.id);
@@ -795,6 +821,20 @@ export function App() {
       return;
     }
 
+    // Track messages for smart memory update suggestion
+    if (result.userMessage) {
+      setMessagesSinceLastUpdate((prev) => prev + 1);
+      const suggestion = shouldSuggestMemoryUpdate({
+        messagesSinceLastUpdate: messagesSinceLastUpdate + 1,
+        latestUserMessage: content,
+        lastSuggestedAt: memoryUpdateSuggestionLastAt,
+      });
+      if (suggestion.show && !memoryUpdateSuggestionVisible) {
+        setMemoryUpdateSuggestionVisible(true);
+        setMemoryUpdateSuggestionLastAt(Date.now());
+      }
+    }
+
     if (result.streamId && result.assistantMessage) {
       activeStreamIdRef.current = result.streamId;
       setStreaming(true);
@@ -1232,6 +1272,35 @@ export function App() {
     ],
   );
 
+  const refreshMemoryDraft = useCallback(async () => {
+    if (!workspace) return;
+    try {
+      const draft = await continuity.previewMemoryCompression({
+        workspaceId: workspace.id,
+        threadId: activeThread?.id ?? null,
+      });
+      setMemoryDraft(draft);
+    } catch {
+      // silently ignore
+    }
+  }, [continuity, workspace, activeThread?.id]);
+
+  const handleMemoryUpdateApplied = useCallback(async () => {
+    setMessagesSinceLastUpdate(0);
+    setMemoryUpdateSuggestionVisible(false);
+    await refreshMemoryDraft();
+  }, [refreshMemoryDraft]);
+
+  // Derive consumer memory state
+  const memorySnapshot = useMemo(
+    () => buildProjectMemorySnapshot(memoryDraft),
+    [memoryDraft],
+  );
+  const resumeCardData = useMemo(
+    () => buildResumeCard(memorySnapshot),
+    [memorySnapshot],
+  );
+
   if (loading) {
     const phaseLabel =
       startupPhase === "migrating"
@@ -1313,6 +1382,33 @@ export function App() {
         ollamaStatusLabel={ollamaStatusLabel}
         projectToolsOpen={showProjectTools}
         onToggleProjectTools={() => setShowProjectTools((value) => !value)}
+      />
+
+      {/* Resume card: shown on workspace open when memory exists, dismissible */}
+      {!resumeCardDismissed && !streaming && (
+        <ResumeCard
+          data={resumeCardData}
+          onContinueChatting={() => setResumeCardDismissed(true)}
+          onReviewMemory={() => {
+            setResumeCardDismissed(true);
+            openChatWorkflow("review_memory");
+          }}
+          onCreateMemoryUpdate={() => {
+            setResumeCardDismissed(true);
+            openChatWorkflow("create_memory_update");
+          }}
+          onDismiss={() => setResumeCardDismissed(true)}
+        />
+      )}
+
+      {/* Smart memory update suggestion */}
+      <MemoryUpdateSuggestion
+        visible={memoryUpdateSuggestionVisible && !streaming}
+        onPreview={() => {
+          setMemoryUpdateSuggestionVisible(false);
+          openChatWorkflow("create_memory_update");
+        }}
+        onDismiss={() => setMemoryUpdateSuggestionVisible(false)}
       />
 
       <div className={`main-row${showProjectTools ? " with-tools" : " manual-first-layout"}`}>
@@ -1418,6 +1514,10 @@ export function App() {
             onContinuityImported={handleContinuityImported}
             focusTarget={opsFocusTarget}
             focusTick={opsFocusTick}
+            memoryDraft={memoryDraft}
+            messagesSinceLastUpdate={messagesSinceLastUpdate}
+            onCreateMemoryUpdate={() => openChatWorkflow("create_memory_update")}
+            onReviewMemory={() => openChatWorkflow("review_memory")}
           />
         )}
       </div>

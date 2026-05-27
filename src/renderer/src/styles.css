@@ -1763,3 +1763,241 @@ a {
   color: #a7f3d0;
 }
 
+/* ===== PROJECT MEMORY DASHBOARD ===== */
+.project-memory-dashboard {
+  border: 1px solid #2a3a50;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(180deg, #111a27 0%, #0e161f 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.project-memory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.project-memory-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2ecf7;
+}
+
+.project-memory-subtitle {
+  margin: 0;
+  color: #7a92ab;
+}
+
+.memory-health-pill {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.memory-health-pill.healthy {
+  background: rgba(74, 222, 128, 0.12);
+  color: #a7f3d0;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+.memory-health-pill.update-suggested {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fde68a;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.memory-health-pill.backup-recommended {
+  background: rgba(251, 146, 60, 0.12);
+  color: #fed7aa;
+  border: 1px solid rgba(251, 146, 60, 0.25);
+}
+
+.memory-health-pill.needs-attention {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.memory-health-pill.no-memory {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.project-memory-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.memory-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.memory-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.memory-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5e7a9a;
+}
+
+.memory-field-value {
+  font-size: 0.85rem;
+  color: #c4d4e8;
+  line-height: 1.45;
+}
+
+.memory-list {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.memory-list-item {
+  font-size: 0.84rem;
+  color: #b0c4d8;
+  line-height: 1.4;
+}
+
+.memory-last-update {
+  margin: 0;
+}
+
+.memory-health-hint {
+  margin: 0;
+  color: #8fa3bf;
+}
+
+.project-memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid #1f2e3f;
+}
+
+/* ===== RESUME CARD ===== */
+.resume-card {
+  margin: 0 1.25rem 0;
+  border: 1px solid #2a3e54;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #101e2d 0%, #0d1820 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.resume-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.resume-card-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4f7cff;
+}
+
+.resume-card-dismiss {
+  background: none;
+  border: none;
+  color: #5a7a9a;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+}
+
+.resume-card-dismiss:hover {
+  color: #8fa3bf;
+}
+
+.resume-card-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #d8eaf8;
+}
+
+.resume-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.resume-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.resume-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5e7a9a;
+  flex-shrink: 0;
+  min-width: 5rem;
+}
+
+.resume-field-value {
+  font-size: 0.84rem;
+  color: #b8cfe4;
+  line-height: 1.4;
+}
+
+.resume-card-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+/* ===== MEMORY UPDATE SUGGESTION ===== */
+.memory-update-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 1.25rem 0;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(79, 124, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(79, 124, 255, 0.07);
+}
+
+.memory-update-suggestion-text {
+  font-size: 0.84rem;
+  color: #a5bde0;
+}
+
+.memory-update-suggestion-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+

@@ -1,467 +1,106 @@
-ContinuityOS Desktop — Full Established Feature Audit Log
-Generated: 2026-05-24T15:35:00-04:00 (approx)
-Project: C:\Users\ronye\continuity-os-desktop
-
-================================================================================
-PHASE 1 — BASELINE
-================================================================================
-git status --short:
- M .continuity-test/migration-audit.jsonl
-
-Branch: main (tracks origin/main, ahead 1 commit locally vs last push state)
-Latest commits:
-  d55ac34 chore: stabilize native sqlite rebuild workflow
-  3fc95e8 chore: prepare continuity desktop for full product testing
-  be85cee test: stabilize desktop runtime restore lane and provider setup
-
-Remote: origin https://github.com/ronyean-collab/OS.git
-
-node -v:  v22.22.0
-npm -v:   10.8.2
-electron: v34.5.8
-
-package.json scripts (native):
-  test: npm run rebuild:native:node && vitest run
-  dev:  npm run rebuild:native:electron && electron-vite dev
-  rebuild:native:node / rebuild:native:electron
-
-Untracked/ignored logs (not in git): error-log.txt, test-feedback-log.txt,
-  build-check-log.txt, native-rebuild-log.txt, _dev-stderr.txt, _audit-dev-*.txt
-
-================================================================================
-PHASE 2 — NATIVE SQLITE / RECOVERY
-================================================================================
-npm rebuild better-sqlite3: success
-npx electron-rebuild -f -w better-sqlite3: Rebuild Complete
-npx electron scripts/verify-sqlite-electron.mjs: electron better-sqlite3 OK
-
-Note: Single .node binary — npm test uses Node ABI; npm run dev rebuilds Electron ABI.
-
-Recovery mode from sqlite: NOT observed in automated dev logs (35s run).
-UI Recovery/schema/workspace: NOT MANUALLY VERIFIED by agent.
-
-================================================================================
-PHASE 3 — AUTOMATED TESTS
-================================================================================
-npm test:
-  Test Files  30 passed (30)
-  Tests       150 passed (150)
-  Duration    ~7.2s
-  Exit code: 0
-
-Targeted vitest (19 critical files, 105 tests):
-  Test Files  19 passed (19)
-  Tests       105 passed (105)
-  Exit code: 0
-
-Files in targeted batch:
-  database, persistence-services, stream-runtime, context-assembly,
-  thread-management, thread-sidebar-runtime, workspace-import, workspace-export,
-  v12-restore-lane, secure-storage, provider-setup, provider-multi,
-  onboarding-flow, crash-recovery, release-runtime, recovery-runtime,
-  orphan-repair, replay-validator, workspace-health
-
-================================================================================
-PHASE 4 — BUILD
-================================================================================
-npm run build: PASS (exit 0)
-  out/main/index.js       212.83 kB
-  out/preload/index.cjs     9.74 kB
-  out/renderer/index.html
-  out/renderer/assets/index-Cms6m9Fz.css
-  out/renderer/assets/index-Hs_bjRMA.js
-
-================================================================================
-PHASE 5 — DEV RUNTIME (AUTOMATED OBSERVATION)
-================================================================================
-npm run dev: started (includes rebuild:native:electron)
-  - Vite main + preload + renderer dev server OK
-  - "start electron app..." logged
-  - No NODE_MODULE, better_sqlite3, Recovery, preload load errors in captured logs
-
-Manual UI verification: NOT PERFORMED
-  - window.continuity: expected via preload (not inspected in DevTools)
-  - Workspace load / Recovery banner: user must confirm
-
-================================================================================
-PHASE 6 — FEATURE AUDIT BY AREA
-================================================================================
-
-A. App startup / preload bridge — PASS (automated + code review)
-   Files: electron/main/index.ts, electron/preload/index.ts, electron.vite.config.ts,
-          src/renderer/src/App.tsx
-   - contextIsolation: true, nodeIntegration: false (main/index.ts)
-   - PreloadBridgeFallback when !window.continuity (App.tsx)
-   - Tests: implicit via IPC/stream tests; no dedicated preload-only test
-
-B. SQLite persistence — PASS (automated)
-   Files: schema.ts, migrations.ts, connection.ts, workspace/message/timeline services
-   - Tests: database.test.ts, persistence-services.test.ts, sqlite-integrity.test.ts
-   - FK enabled in tests; migrations record schema version
-
-C. Workspace lifecycle — PASS (automated)
-   Files: workspace-service.ts, workspace-health.ts, workspace-import/export.ts
-   - Tests: workspace-health, workspace-import, workspace-export, persistence-services
-
-D. Thread management — PASS (automated)
-   Files: thread-management-service.ts, ThreadSidebar.tsx, ThreadDeleteConfirm.tsx
-   - Tests: thread-management.test.ts, thread-sidebar-runtime.test.ts
-
-E. Chat runtime / streaming — PASS (automated)
-   Files: stream-runtime.ts, message-service.ts, provider-service.ts, openai-adapter.ts
-   - Tests: stream-runtime.test.ts, recovery-runtime.test.ts
-
-F. Context assembly / RAM protection — PARTIAL
-   Files: context-assembly.ts, message-service.ts, stream-runtime.ts, App.tsx
-   - DEFAULT_CONTEXT_MESSAGE_LIMIT = 40 messages
-   - DEFAULT_MESSAGE_PAGE_SIZE = 40 (renderer pagination)
-   - listMessages caps at 2x page size for main-process listMessages()
-   - stream-runtime uses listMessagesPage(limit=40)
-   - applyContextTruncation: NO-OP (no token-aware budget yet)
-   - Very long single messages: not specially truncated
-   - Tests: context-assembly.test.ts, workspace-health.test.ts
-  Gaps: token-aware truncation not implemented; export holds full package in memory transiently
-
-G. Provider onboarding / setup — PASS (automated)
-   Files: provider-definitions, ProviderOnboarding, ProviderSetupPanel, provider-service
-   - Tests: onboarding-flow, provider-setup, provider-multi, provider-definitions
-
-H. Secure API key storage — PASS (automated)
-   Files: secure-storage/*, provider-service.ts, diagnostics-service.ts
-   - secure_key_ref in SQLite; assertNoSecretsInDiagnostics
-   - Tests: secure-storage.test.ts, crash-recovery (diagnostics secrets)
-
-I. Export / import — PASS (automated)
-   Files: workspace-export.ts, export-manifest.ts, workspace-import.ts, checkpoint-validator.ts
-   - Tests: workspace-export.test.ts, workspace-import.test.ts
-
-J. Encrypted backup — PASS (automated)
-   Files: encrypted-export.ts, encrypted-import.ts
-   - Tests: encrypted-export.test.ts, v12-restore-lane (corrupt bundle, wrong password)
-
-K. Snapshots / restore lane — PASS (automated)
-   Files: snapshot-service.ts, restore-service.ts, restore-preview.ts, migration-dry-run.ts
-   - Tests: restore-service.test.ts, autosave-runtime.test.ts, v12-restore-lane.test.ts
-
-L. Crash recovery / diagnostics — PASS (automated)
-   Files: crash-logger, diagnostics-service.ts, diagnostics-bundle.ts
-   - Tests: crash-recovery.test.ts, app-version.test.ts
-
-M. Release / update readiness — PASS (automated)
-   Files: release-channel.ts, compatibility.ts, update-readiness.ts, migration-audit
-   - Tests: release-runtime.test.ts, recovery-runtime.test.ts
-
-N. Orphan repair / integrity — PASS (automated)
-   Files: orphan-repair.ts, export-verification, checkpoint-validator
-   - Tests: orphan-repair.test.ts, sqlite-integrity.test.ts, replay-validator.test.ts
-
-O. UI beginner-readiness — NOT MANUALLY VERIFIED
-   Code review only: calm copy in onboarding, backup reminder, recovery banner components exist
-   Manual walkthrough required per docs/FULL_TESTING_CHECKLIST.md
-
-================================================================================
-CONTEXT / RAM ANSWERS (from code)
-================================================================================
-1. Recent messages default: 40 (assembleThreadContext / stream path)
-2. Token budget: placeholder only; applyContextTruncation returns messages unchanged
-3. Very long single messages: not split/truncated by token logic
-4. RAM risks: export/import full bundle in memory; user loading all older pages in UI;
-   ops panels load timeline/snapshots on refresh
-5. Remaining long-chat gaps: token-aware truncation,
-   semantic retrieval (out of scope per product direction)
-
-================================================================================
-BUGS FOUND THIS SESSION
-================================================================================
-None blocking automated verification.
-
-Known limitations (not new bugs):
-- Dual ABI native module requires correct rebuild script before test vs dev
-- applyContextTruncation no-op
-
-Project Continuity Summary v1 (2026-05-18):
-- Implemented: workspaces.continuity_summary column (schema v6)
-- User-editable in Overview ops panel; included in assembleProviderContext
-- Export/import and snapshot checkpoint preserve summary
-- Max 8000 chars; does not delete or replace canonical messages
-
-Universal Context Pack / Manual AI Mode v1 (2026-05-18):
-- Implemented: cross-platform copy/paste continuity workflow with no provider required
-- Builds readable plain-text context packs from workspace name, continuity summary, thread title, recent messages, and current request
-- Saves pasted external AI responses back into the active thread as normal local messages
-- Works in no-provider mode and preserves export/import compatibility
-
-Manual-first UX simplification (2026-05-25):
-- Default landing view is now threads + current chat without provider onboarding
-- Manual Mode / Universal Context Pack is the primary path in the chat area
-- Provider setup remains available, but only inside the Project tools drawer
-- Continuity summary, snapshots, export/import, diagnostics, and other advanced tools are hidden from the main screen until opened
-
-Normal chat composer with manual fallback (2026-05-25):
-- Restored a standard center composer with normal send behavior and `Message your workspace...` placeholder
-- Sending now saves the user message locally even when no provider is configured
-- `Continue in Any AI` is now the fallback continuation step, not the primary input surface
-- Added assistant-only manual response saves to avoid duplicating an already-saved user message
-- Provider failures now preserve the local user message and fall back calmly to manual continuation
-
-Chat-like manual fallback guidance (2026-05-25):
-- Replaced the red no-provider fallback alert with an in-thread ContinuityOS guidance card
-- Guidance is renderer-only and not saved as a fake assistant answer
-- Guidance card now explains that messages are saved locally and the AI reply path is the Context Pack
-- Added direct fallback actions to copy the Context Pack and jump into pasted-response flow
-- Auto-opened/highlighted the manual reply tools after no-provider or provider-unavailable sends
-
-Continuity import file workflow and local AI foundation (2026-05-25):
-- Added a dedicated markdown ContinuityOS Import File parser/preview/apply flow
-- Import supports update current workspace, create new workspace, and checkpoint-only modes
-- Raw imported source is preserved locally in continuity_records for audit
-- Added a continuity_import_file_applied timeline event
-- Added visible in-app instructions and a copyable “Generate ContinuityOS Import File” prompt
-- Universal Context Pack now includes imported project-state sections (project state, facts, decisions, issues, next steps, latest status, important context)
-- Added Local AI tools for Ollama detection, model refresh, test, and activation
-- Implemented an Ollama adapter with no API key requirement, using the existing provider/runtime path
-- Local AI remains optional; if Ollama is unavailable, local-save/manual fallback still remains the safe continuation path
-
-Markdown Memory System v1 (2026-05-25):
-- Standardized a shared `# CONTINUITYOS MEMORY FILE` schema with `file_type` and markdown-first project-state sections
-- Kept legacy `# CONTINUITYOS IMPORT FILE` imports working so existing flows do not break
-- Expanded Project tools with a `Markdown Memory Files` panel for:
-  - any-AI prompt copy
-  - markdown preview/apply
-  - `.md` export for project state, AI handoff, and thread summary
-  - visible Memory / Project State review
-- Saved generated markdown memory records in `continuity_records` so review remains local and inspectable
-- Updated Context Packs to use `## Markdown Memory / Project State` and include rules/recent useful excerpts when present
-- Preserved the local-first/manual-first boundaries: no vector DB, no hidden user profile, no autonomous background memory agent
-
-Guided continuity routine (2026-05-25):
-- Added a renderer-only `ContinuityOS Guide` state model so the chat can guide users without fabricating AI output
-- Welcome guide now explains the chat purpose and offers clear next actions:
-  - Continue in Any AI
-  - Import Memory
-  - Review Project Memory
-  - Back Up / Export
-  - Set Up Local AI
-- Post-import guidance now points directly to Context Pack as the next step and keeps the chat as the command center
-- Post-context-copy guidance now explains exactly where to paste the pack and where to paste the response back
-- Post-response-saved guidance now suggests memory update / continue / backup next steps
-- Guide actions can open or focus the right Project tools area for import, review, export, and Local AI setup
-- Manual context-pack UI now explains that it should be used after importing memory or sending a message
-- Chat copy now better explains local save behavior, no-provider behavior, and the role of Context Packs
-- Added focused helper tests for guided copy and state transitions
-- Made thread reconstruction order deterministic under timestamp ties to keep manual-response tests stable
-
-Chat-driven continuity workflows (2026-05-25):
-- Added `chat-workflows.ts` so the renderer can route explicit chat commands into local workflows without inventing assistant replies
-- Added a new in-chat `ChatWorkflowPanel` for:
-  - Import Memory preview/apply
-  - Continue in Any AI / Context Pack
-  - Paste AI Response / Save Response
-  - Review Project Memory
-  - Back Up / Export
-  - Set Up Local AI
-- Added natural-language intent routing for commands such as:
-  - `import memory`
-  - `backup`
-  - `continue in any ai`
-  - `what do you know`
-  - `setup local ai`
-  - `paste response`
-  - `what do I do next`
-- Added a local-only message-save IPC path so explicit workflow commands can be stored as normal user messages in the active thread without starting a provider stream
-- Moved the visible ContinuityOS Guide to the bottom of the message list so it behaves like the latest local guide response
-- In-chat import now uses the existing markdown preview/apply APIs directly instead of only focusing Project tools
-- In-chat Context Pack flow now copies and previews the pack inside chat and transitions directly into the paste-response flow
-- In-chat pasted-response flow now saves via the existing assistant-only manual response path and keeps canonical history append-only
-- In-chat review-memory flow now summarizes the latest saved markdown memory record and avoids inventing missing facts
-- In-chat backup/export flow now offers markdown export actions directly in chat while keeping full backup tools optional
-- In-chat Local AI flow now detects/refreshes Ollama status in chat and can enable the selected local model from chat
-- Added pure helper tests in `tests/chat-workflows.test.ts`
-
-================================================================================
-FIXES APPLIED THIS SESSION
-================================================================================
-- Removed provider-gated default onboarding from the main renderer flow
-- Collapsed advanced panels behind a Project tools drawer while keeping the backend features intact
-- Added regression coverage for manual-first onboarding defaults and later context-pack continuity
-- Restored a normal chat composer while keeping the local-first send path and compact manual fallback
-- Added assistant-only manual response persistence so pasted replies do not duplicate the saved user turn
-- Added chat-like local fallback guidance so no-provider sends feel conversational instead of failed
-- Added a portable AI-chat import workflow with preview/apply and raw-source preservation
-- Enriched Context Pack generation with imported project state
-- Added optional Ollama-based Local AI tools and runtime support without reintroducing an API-key gate
-- Added markdown-first memory import/export/review so ContinuityOS can hand state to and from any AI as `.md`
-- Added a guided continuity routine so the main chat can act as the app's command center without requiring provider setup
-- Added chat-driven continuity workflows so import, Context Pack, pasted-response, review, backup, and Local AI flows can run directly inside the chat
-
-================================================================================
-UNRESOLVED RISKS
-================================================================================
-- Manual UI/Recovery/workspace confirmation still required
-- Live OpenAI streaming not tested in this pass
-- RAM profiling not performed
-- Node v22 in audit env vs v20 in older logs — rebuild ABI numbers differ by Node major
-- Restored chat composer still needs live visual confirmation in the packaged renderer
-- Chat-like local fallback guidance still needs live visual confirmation in the packaged renderer
-- Universal Context Pack UI still needs manual cross-platform verification in real ChatGPT/Claude/Gemini chats
-- Continuity import file UI still needs live copy/paste verification against a real external AI chat
-- Markdown export/review UI still needs live verification in a real Electron window
-- Local AI tools still need live verification with a real Ollama server/model on this machine
-- Guided ContinuityOS Guide flow still needs live visual confirmation inside the Electron app window
-- Chat-driven workflow interactions still need live visual confirmation inside the Electron app window
-- Token-aware truncation still not implemented
-
-================================================================================
-RECOMMENDED NEXT PHASE
-================================================================================
-1. Manual pass: docs/FULL_TESTING_CHECKLIST.md sections I, K, M, N, O, P, Q, R, S, T
-2. Use the markdown-memory import/export flow end to end with a real ChatGPT/Claude/Gemini session
-3. Start a real Ollama server/model locally and verify detection, test, and saved assistant replies
-4. Future small win: token-aware applyContextTruncation (no architecture change)
-
-================================================================================
-END OF AUDIT LOG
-================================================================================
-
-ADDENDUM — 2026-05-26 LOCAL AI SHELL AND MEMORY COMPRESSION SCAFFOLD
-================================================================================
-
-Goal:
-- Prepare ContinuityOS for tomorrow testing as a local-first AI chat shell with:
-  - conversational local guidance for normal no-engine questions
-  - Ollama-first chat setup guidance
-  - Built-in Local AI scaffold visibility
-  - deterministic markdown memory-update previews
-
-What changed:
-- Added renderer conversational-shell classification/helper for help, next-step,
-  no-response, memory, and general-question prompts.
-- Updated App send flow so no-engine questions save locally and surface an
-  honest ContinuityOS Guide card instead of a provider/setup error.
-- Added in-chat `Create Memory Update` workflow with preview/copy/apply actions.
-- Added main-process `memory-compression-service.ts` for deterministic
-  project-state markdown draft generation.
-- Added main-process `embedded-local-llm-service.ts` scaffold for future local
-  bundled models (status, metadata, directory concept, safe NOT_READY paths).
-- Added preload / IPC methods for embedded-local status and memory-compression
-  preview.
-- Expanded in-chat Local AI workflow to include Built-in Local AI scaffold copy
-  plus Ollama status/model controls.
-- Added model-file ignore patterns to `.gitignore`.
-
-Automated verification:
-- Targeted vitest:
-  conversational-shell / embedded-local-llm / memory-compression /
-  local-ai / stream-runtime / chat-workflows / manual-context-pack /
-  continuity-import-file / onboarding-flow
-  => PASS (9 files / 51 tests)
-- Full npm test:
-  => PASS (40 files / 210 tests)
-- npm run build:
-  => PASS
-
-Manual verification:
-- Not performed in this addendum session.
-- Tomorrow focus:
-  1. normal guide replies (`can you help me`, `what do I do next`)
-  2. no-engine explanation (`why are you not answering`)
-  3. in-chat Local AI / Built-in Local AI scaffold visibility
-  4. memory update preview/copy/apply
-  5. post-apply Context Pack continuation
-
-Risks still open:
-- Real Ollama interaction not manually verified in UI
-- Built-in Local AI remains scaffold-only, not active direct generation
-- Renderer behavior visually unverified in this headless session
-
-================================================================================
-ADDENDUM — 2026-05-26 CONVERSATION-FIRST CHAT UI
-================================================================================
-
-Goal:
-- Make ContinuityOS feel like a normal AI chat conversation instead of a guide-
-  first workflow screen.
-
-What changed:
-- Added deterministic chat-surface helpers for:
-  - user / assistant / guide bubble presentation
-  - compact guide visibility rules
-- Updated the chat thread renderer so:
-  - user messages align right and render as `You`
-  - assistant replies align left and render as `AI`
-  - guide/workflow messages stay centered and visually secondary
-- Replaced the large default in-thread guide with a simple empty-chat welcome:
-  - "Ask me anything about this project."
-  - small optional quick actions only
-- Removed the always-visible guide block from normal thread rendering.
-- Stopped auto-expanding workflow-heavy UI after some fallback paths:
-  - no-engine / error cases now prefer compact guide bubbles
-  - import completion returns to normal chat instead of auto-opening the next
-    workflow
-- Kept workflow panels inline only while the workflow is active.
-- Simplified top-level copy so the app reads as a chat experience first.
-
-Automated verification:
-- Focused vitest:
-  chat-surface / conversational-shell / chat-workflows / guided-routines /
-  local-ai / stream-runtime / manual-context-pack / continuity-import-file
-  => PASS (8 files / 46 tests)
-
-Manual verification:
-- Not performed in this addendum session.
-- Manual pass should confirm:
-  1. bubble alignment and spacing
-  2. guide only appears when asked/needed
-  3. normal Ollama chat does not inject extra guide cards
-  4. workflow panels stay hidden until triggered
-
-Risks still open:
-- Live bubble rendering not visually verified in Electron during this session
-- Real Ollama interaction still needs manual confirmation
-
-================================================================================
-ADDENDUM — 2026-05-26 OLLAMA-ONLY CHAT ENGINE
-================================================================================
-
-Goal:
-- Simplify ContinuityOS so Ollama is the only active in-app chat engine, while
-  keeping local markdown memory, compressed memory, backup/export, and advanced
-  handoff tools.
-
-What changed:
-- Restricted normal direct-chat runtime to Ollama only.
-- Added visibility metadata for provider definitions so only Ollama appears in
-  the normal UI and active chat engine list.
-- Kept legacy cloud-provider definitions/config plumbing for compatibility, but
-  removed them from the visible product flow.
-- Replaced the generic provider chooser with a dedicated `Ollama Setup` panel.
-- Updated the workspace header to show Ollama status instead of generic provider
-  status.
-- Updated no-engine guidance so the user is told to install/start Ollama rather
-  than choose a cloud provider.
-- Repositioned `continue in any ai` / Context Pack flow as an advanced handoff
-  workflow rather than the default reply path.
-- Removed visible Built-in Local AI scaffold copy from the main setup workflow
-  so the user-facing setup path stays focused on Ollama.
-- Updated stream/runtime tests to use Ollama as the active mocked engine.
-
-Automated verification:
-- Focused vitest:
-  local-ai / stream-runtime / chat-workflows / conversational-shell /
-  memory-compression / manual-context-pack / continuity-import-file /
-  provider-definitions / provider-multi / provider-setup / manual-fallback-copy
-  => PASS (11 files / 62 tests)
-
-Manual verification:
-- Not performed in this addendum session.
-- Manual pass should confirm:
-  1. no cloud-provider setup appears in normal UI
-  2. header shows Ollama status
-  3. no-Ollama send stays calm and local
-  4. real Ollama reply saves as a normal assistant bubble
-  5. advanced handoff export remains secondary
-
-Risks still open:
-- Real Ollama detection/model selection still needs live manual verification
-- Renderer UI changes were not visually confirmed in Electron during this
-  headless session
+===== ContinuityOS Full Feature Audit =====
+Date: 2026-05-27
+Commit: 767517b (style: improve chat composer layout)
+
+===== CLASSIFICATION KEY =====
+A  = Consumer-visible core (shown by default, simple language)
+B  = Consumer-visible but renamed/simplified
+C  = Hidden under Advanced (accessible but not default)
+D  = Developer/recovery only
+E  = Legacy/deprecated but kept for compatibility
+F  = Candidate for future removal (do not remove in this task)
+
+===== FEATURE CLASSIFICATION =====
+
+--- CHAT & AI ---
+Ollama direct chat (send/receive messages)          A  — core, remains primary
+Ollama detection / base URL setup                  B  — "Local AI Setup" (not "provider config")
+Selected model display                             A  — shown in composer as "Model: ..."
+Ollama not-ready guidance card                     A  — compact, friendly copy
+Chat streaming / cancel                            A  — integrated in composer
+Chat memory context assembly                       A  — invisible/automatic background
+
+--- MEMORY ---
+Continuity Summary (workspace context)             A  — rename to "Project Summary" in UI labels
+Memory Compression / Memory Update draft           A  — "Create Memory Update"
+Apply Continuity Import file                       A  — "Import Memory" (consumer friendly already)
+Markdown Memory Records (list)                     B  — "Memory History" (not "continuity records")
+Memory compression levels (raw/thread/project)     C  — Advanced / Memory settings
+Context Pack build (universal AI handoff)          C  — "AI Handoff" under Advanced
+Memory review workflow                             A  — "Review Memory" already used
+
+--- BACKUP & EXPORT ---
+Export workspace (JSON)                            B  — "Export Backup" (already partly named this)
+Encrypted export                                   B  — "Encrypted Backup"
+Import workspace (JSON restore)                    B  — "Restore from Backup"
+Encrypted import                                   B  — "Restore from Encrypted Backup"
+Backup reminder status                             B  — show gently, not aggressively
+
+--- RECOVERY & SAFETY ---
+Snapshots (manual + recovery)                      C  — rename to "Restore Points" under Advanced
+Snapshot restore preview + execute                 C  — under Advanced > Restore Points
+Restore service / restore lanes                    D  — developer/recovery internal
+Recovery mode banner                               A  — visible only when actually in recovery
+SQLite integrity scan                              D  — developer/diagnostics only
+Replay validation                                  D  — developer/diagnostics only
+Orphan repair                                      D  — developer/diagnostics only
+V12 restore lane                                   D  — compatibility layer only
+
+--- TIMELINE ---
+Timeline events list                               C  — rename to "Activity History" under Advanced
+Timeline groups panel (TimelinePanel)              C  — under Advanced > Activity History
+
+--- DIAGNOSTICS ---
+Diagnostics panel (DiagnosticsPanel)               C  — rename to "Troubleshooting" under Advanced
+App version / build info                           C  — under Troubleshooting
+Migration audit                                    D  — developer only
+Crash recovery log                                 D  — developer only
+
+--- PROVIDER / AI SETUP ---
+ProviderSetupPanel (Ollama local AI tab)           B  — rename "Local AI Setup", keep under Ollama tab
+Cloud provider configs (OpenAI, Anthropic etc.)    E  — legacy rows kept in DB, no UI flow for new setup
+Provider test connection                           B  — "Test Local AI" under Local AI Setup
+
+--- WORKSPACE ---
+Workspace create / select                          A  — already working
+Thread create / rename / archive / delete          A  — already working
+Workspace health panel                             C  — "Workspace Status" under Advanced
+Workspace import (workspace-import service)        C  — under Advanced or backup flow
+Continuity import preview                          A  — used in memory import flow
+
+--- UI PANELS (Current) ---
+OpsSidebar                                         B  — rename "Project Tools", tabs renamed
+  Overview tab -> "Memory & Backup"                B
+  Timeline tab -> "Activity History"               B
+  Snapshots tab -> "Restore Points"                B
+  Provider tab -> "Local AI Setup"                 B  (already "Ollama" in current code)
+
+--- NEW CONSUMER FEATURES (to build) ---
+Project Memory Dashboard                           A  — new consumer card
+Resume Where You Left Off card                     A  — new, dismissible
+Memory Health indicator                            A  — small pill/badge
+Smart Memory Update suggestion                     A  — gentle, threshold-based
+
+===== TERMS TO RENAME IN UI =====
+"Timeline"         -> "Activity History" (Advanced only)
+"Snapshots"        -> "Restore Points" (Advanced only)
+"Context Pack"     -> "AI Handoff" (Advanced only)
+"Provider"         -> hide legacy, rename to "Local AI Setup" for Ollama
+"Continuity Records" -> "Memory History"
+"Diagnostics"      -> "Troubleshooting"
+"Import Encrypted" -> "Restore from Encrypted Backup"
+"Export"           -> "Export Backup"
+"Encrypted backup" -> "Encrypted Backup"
+
+===== TERMS TO NEVER SHOW NORMAL USERS =====
+- timeline
+- snapshots (use "Restore Points")
+- context pack
+- provider config
+- schema version
+- migration
+- restore lane
+- raw continuity records
+- diagnostics
+- replay validation
+- orphan repair

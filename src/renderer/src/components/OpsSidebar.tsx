@@ -6,10 +6,12 @@ import { ContinuitySummaryPanel } from "./ContinuitySummaryPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { SnapshotPanel } from "./SnapshotPanel";
 import { ContinuityImportPanel } from "./ContinuityImportPanel";
+import { ProjectMemoryDashboard } from "./ProjectMemoryDashboard";
 import type {
   AppState,
   AutosaveStatus,
   ContinuityImportApplyResult,
+  MemoryCompressionDraft,
   RestoreExecutionResult,
   RestorePreview,
   SnapshotRecord,
@@ -17,7 +19,7 @@ import type {
   WorkspaceHealthReport,
 } from "@shared/types";
 
-export type OpsTabId = "overview" | "timeline" | "snapshots" | "provider";
+export type OpsTabId = "overview" | "activity" | "restore-points" | "local-ai";
 export type OpsFocusTarget =
   | "import-memory"
   | "review-memory"
@@ -54,13 +56,18 @@ type Props = {
   onContinuityImported: (result: ContinuityImportApplyResult) => Promise<void>;
   focusTarget: OpsFocusTarget | null;
   focusTick: number;
+  // Consumer memory props
+  memoryDraft?: MemoryCompressionDraft | null;
+  messagesSinceLastUpdate?: number;
+  onCreateMemoryUpdate?: () => void;
+  onReviewMemory?: () => void;
 };
 
 const TABS: { id: OpsTabId; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "timeline", label: "Timeline" },
-  { id: "snapshots", label: "Snapshots" },
-  { id: "provider", label: "Ollama" },
+  { id: "overview", label: "Memory & Backup" },
+  { id: "activity", label: "Activity History" },
+  { id: "restore-points", label: "Restore Points" },
+  { id: "local-ai", label: "Local AI Setup" },
 ];
 
 export function OpsSidebar({
@@ -92,12 +99,25 @@ export function OpsSidebar({
   onContinuityImported,
   focusTarget,
   focusTick,
+  memoryDraft = null,
+  messagesSinceLastUpdate = 0,
+  onCreateMemoryUpdate,
+  onReviewMemory,
 }: Props) {
   let panel: ReactNode = null;
 
   if (activeTab === "overview") {
     panel = (
       <>
+        <ProjectMemoryDashboard
+          draft={memoryDraft}
+          messagesSinceLastUpdate={messagesSinceLastUpdate}
+          disabled={recoveryMode}
+          onCreateMemoryUpdate={onCreateMemoryUpdate ?? (() => {})}
+          onReviewMemory={onReviewMemory ?? (() => {})}
+          onExportBackup={onExport}
+          onOpenAdvanced={() => {}}
+        />
         <ContinuityImportPanel
           workspaceId={workspaceId}
           threadId={threadId}
@@ -120,9 +140,9 @@ export function OpsSidebar({
         />
       </>
     );
-  } else if (activeTab === "timeline") {
+  } else if (activeTab === "activity") {
     panel = <TimelinePanel groups={timelineGroups} />;
-  } else if (activeTab === "snapshots") {
+  } else if (activeTab === "restore-points") {
     panel = (
       <SnapshotPanel
         snapshots={snapshots}
@@ -134,10 +154,10 @@ export function OpsSidebar({
         onRestored={onRestored}
       />
     );
-  } else if (activeTab === "provider" && providerPanel) {
+  } else if (activeTab === "local-ai" && providerPanel) {
     panel = (
       <ProviderSetupPanel
-        key={providerPanel.initialProviderId ?? providerPanel.initial?.provider ?? "openai"}
+        key={providerPanel.initialProviderId ?? providerPanel.initial?.provider ?? "ollama"}
         {...providerPanel}
         focusLocalAiSignal={focusTarget === "local-ai" ? focusTick : 0}
       />
@@ -148,14 +168,10 @@ export function OpsSidebar({
     <aside className="ops-sidebar">
       <div className="ops-sidebar-header">
         <div>
-          <h2>Project tools</h2>
+          <h2>Project Tools</h2>
           <p className="muted small">
-            Ollama powers direct chat. Import/export, compressed memory, diagnostics, and recovery
-            tools stay available here.
-          </p>
-          <p className="muted small">
-            Advanced AI handoff exports stay available here, but they are no longer the normal chat
-            path.
+            Memory updates, backups, restore points, and Local AI setup. Advanced tools live here
+            so your main chat stays clean.
           </p>
         </div>
         <button type="button" className="secondary small-btn" onClick={onClose}>
@@ -163,24 +179,8 @@ export function OpsSidebar({
         </button>
       </div>
       <div className="ops-quick-actions">
-        <button type="button" className="secondary small-btn" disabled={!workspaceId} onClick={onImport}>
-          Import
-        </button>
-        <button
-          type="button"
-          className="secondary small-btn"
-          disabled={!workspaceId || recoveryMode}
-          onClick={onImportEncrypted}
-        >
-          Import encrypted
-        </button>
-        <button
-          type="button"
-          className="secondary small-btn"
-          disabled={!workspaceId || exporting}
-          onClick={onExport}
-        >
-          {exporting ? "Exporting…" : "Export"}
+        <button type="button" className="secondary small-btn" disabled={!workspaceId || exporting} onClick={onExport}>
+          {exporting ? "Exporting…" : "Export Backup"}
         </button>
         <button
           type="button"
@@ -188,10 +188,21 @@ export function OpsSidebar({
           disabled={!workspaceId || recoveryMode || exporting}
           onClick={onEncryptedExport}
         >
-          Encrypted backup
+          Encrypted Backup
+        </button>
+        <button type="button" className="secondary small-btn" disabled={!workspaceId} onClick={onImport}>
+          Restore from Backup
+        </button>
+        <button
+          type="button"
+          className="secondary small-btn"
+          disabled={!workspaceId || recoveryMode}
+          onClick={onImportEncrypted}
+        >
+          Restore from Encrypted Backup
         </button>
         <button type="button" className="secondary small-btn" onClick={onOpenDiagnostics}>
-          Diagnostics
+          Troubleshooting
         </button>
       </div>
       <nav className="ops-tabs" aria-label="Workspace panels">

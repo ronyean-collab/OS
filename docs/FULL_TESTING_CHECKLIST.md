@@ -1,7 +1,30 @@
 # ContinuityOS Desktop — Full Testing Checklist
 
+**Product note:** ContinuityOS is a local AI project memory system, not just a chat app.
+Core user promise: "Never lose project context again."
+Stack: Ollama-only direct chat + Project Memory + Resume Where You Left Off + Memory Health + Smart Memory Updates + Backup/Export.
+
 Use this checklist for product-readiness and release verification.  
 **Principles:** local-first, deterministic storage, no telemetry, recovery-first, no raw API keys in SQLite/logs.
+
+---
+
+## Z. Consumer UX — Tomorrow Manual Test Plan
+
+| # | Check | Pass | Notes |
+|---|--------|------|-------|
+| Z1 | Launch app — default UI looks simple and chat-first | ☐ | |
+| Z2 | No provider/cloud setup visible in main flow | ☐ | |
+| Z3 | Technical terms (timeline, snapshots, context pack, provider) not in default view | ☐ | |
+| Z4 | Chat works with Ollama (send message, get AI reply) | ☐ | |
+| Z5 | Project Memory card visible in Project Tools > Memory & Backup | ☐ | |
+| Z6 | Resume card appears when memory exists (dismissible) | ☐ | |
+| Z7 | Memory Health indicator shows correct state | ☐ | |
+| Z8 | Memory update suggestion appears after threshold messages | ☐ | |
+| Z9 | Preview update → Apply updates project memory | ☐ | |
+| Z10 | Export Backup / Encrypted Backup still accessible under Project Tools | ☐ | |
+| Z11 | Advanced tools (Activity History, Restore Points, Troubleshooting) collapsed by default | ☐ | |
+| Z12 | No renderer crash | ☐ | |
 
 ---
 
