@@ -9,7 +9,7 @@ import {
   isProviderRuntimeReady,
   providerRuntimeMessage,
 } from "./provider-runtime";
-import { getProviderBaseUrl } from "./provider-service";
+import { getOllamaProviderConfig, getProviderBaseUrl } from "./provider-service";
 import { openAIAdapter } from "../providers/openai-adapter";
 import type { ProviderAdapter } from "../providers/types";
 import { secureStorage } from "../secure-storage";
@@ -118,10 +118,15 @@ function logOllamaRoute(details: Record<string, unknown>): void {
   console.info("[continuity] ollama route", details);
 }
 
+export type OllamaStreamOverride = {
+  model: string;
+  baseUrl: string;
+};
+
 export async function startAssistantStream(
   db: Database.Database,
   sender: WebContents,
-  input: { threadId: string; content: string },
+  input: { threadId: string; content: string; ollama?: OllamaStreamOverride },
 ): Promise<{
   streamId: string | null;
   userMessage: Message | null;
@@ -155,31 +160,65 @@ export async function startAssistantStream(
     messageStatus: "completed",
   });
 
-  const config = db
+  const provider = "ollama";
+  const ollamaOverride = input.ollama;
+  const storedOllama = getOllamaProviderConfig(db, workspaceId);
+  const storedRow = db
     .prepare(
-      "SELECT * FROM provider_configs WHERE workspace_id = ? AND enabled = 1 LIMIT 1",
+      `SELECT * FROM provider_configs
+       WHERE workspace_id = ? AND provider = 'ollama'
+       ORDER BY updated_at DESC LIMIT 1`,
     )
     .get(workspaceId) as Record<string, unknown> | undefined;
 
-  if (!config) {
+  const model =
+    ollamaOverride?.model.trim() ||
+    storedOllama?.model.trim() ||
+    (storedRow ? String(storedRow.model).trim() : "");
+
+  const def = getProviderDefinition(provider);
+  const baseUrl =
+    ollamaOverride?.baseUrl.trim() ||
+    storedOllama?.baseUrl?.trim() ||
+    getProviderBaseUrl(db, workspaceId, provider) ||
+    def.defaultBaseUrl ||
+    "";
+
+  logOllamaRoute({
+    route: "send-start",
+    workspaceId,
+    threadId,
+    ollamaOverride: ollamaOverride ?? null,
+    selectedModel: model || null,
+    baseUrl: baseUrl || null,
+    storedProviderModel: storedOllama?.model ?? null,
+    storedProviderBaseUrl: storedOllama?.baseUrl ?? null,
+  });
+
+  if (!model) {
+    const legacyCloud = db
+      .prepare(
+        `SELECT provider FROM provider_configs
+         WHERE workspace_id = ? AND enabled = 1 AND provider != 'ollama' LIMIT 1`,
+      )
+      .get(workspaceId) as { provider: string } | undefined;
+
     return {
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error: "Ollama is required for AI replies. Install or start Ollama, then select a local model.",
+      error: legacyCloud
+        ? "In-app chat uses Ollama only. Open Ollama Setup, detect Ollama, and select a local model."
+        : "Select a local Ollama model in Ollama Setup.",
     };
   }
 
-  const provider = String(config.provider);
-  const model = String(config.model);
-
-  if (provider !== "ollama") {
+  if (!baseUrl) {
     return {
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error:
-        "Ollama is the only in-app chat engine enabled. Open Ollama Setup, detect Ollama, and select a local model.",
+      error: "Set the Ollama base URL in Ollama Setup.",
     };
   }
 
@@ -192,14 +231,7 @@ export async function startAssistantStream(
     };
   }
 
-  const def = getProviderDefinition(provider);
-  const ref = config.secure_key_ref != null ? String(config.secure_key_ref) : "";
-  const connectionValue =
-    provider === "ollama"
-      ? getProviderBaseUrl(db, workspaceId, provider) ?? def.defaultBaseUrl ?? ""
-      : def.requiresApiKey && ref
-        ? secureStorage.getKey(ref)
-        : null;
+  const connectionValue = baseUrl;
   const adapter = getProviderAdapter(provider);
 
   if (!adapter || !adapter.isConfigured(connectionValue)) {
@@ -207,36 +239,26 @@ export async function startAssistantStream(
       route: "unavailable",
       provider,
       model,
-      baseUrl: provider === "ollama" ? connectionValue : null,
+      baseUrl: connectionValue,
     });
     return {
       streamId: null,
       userMessage,
       assistantMessage: null,
-      error: "Set the Ollama base URL in Ollama Setup and confirm Ollama is running.",
+      error:
+        "Ollama is not reachable at the configured base URL. Open Ollama Setup to detect the local server again.",
     };
   }
 
-  if (provider === "ollama") {
-    const baseUrl =
-      getProviderBaseUrl(db, workspaceId, provider) ?? def.defaultBaseUrl ?? "";
-    if (!baseUrl) {
-      return {
-        streamId: null,
-        userMessage,
-        assistantMessage: null,
-        error: "Set the Ollama base URL in Ollama Setup.",
-      };
-    }
-    logOllamaRoute({
-      route: "ollama",
-      provider,
-      model,
-      baseUrl,
-      threadId,
-      workspaceId,
-    });
-  }
+  logOllamaRoute({
+    route: "ollama",
+    provider,
+    model,
+    baseUrl: connectionValue,
+    threadId,
+    workspaceId,
+    usedOverride: Boolean(ollamaOverride),
+  });
 
   const historyPage = listMessagesPage(db, threadId, {
     limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,

@@ -46,8 +46,22 @@ async function requestOllamaCompletion(
   });
 
   if (!response.ok) {
+    let apiError = "";
+    try {
+      const errBody = (await response.json()) as OllamaChatResponse;
+      apiError = errBody.error?.trim() ?? "";
+    } catch {
+      apiError = "";
+    }
+    if (response.status === 404) {
+      throw new Error(
+        apiError ||
+          `Model "${request.model}" was not found in Ollama. Pull or select a different model.`,
+      );
+    }
     throw new Error(
-      `Local Ollama server returned HTTP ${response.status}. Confirm Ollama is running and the base URL is correct.`,
+      apiError ||
+        `Ollama request failed with HTTP ${response.status}. Confirm Ollama is running and the base URL is correct.`,
     );
   }
 
@@ -100,6 +114,14 @@ export class OllamaAdapter implements ProviderAdapter {
       const error = err instanceof Error ? err : new Error(String(err));
       if (signal?.aborted || error.name === "AbortError") {
         handlers.onError(new Error("Stream cancelled"));
+        return;
+      }
+      if (error.message.includes("fetch failed") || error.message.includes("ECONNREFUSED")) {
+        handlers.onError(
+          new Error(
+            "Ollama server is unavailable. Start Ollama or update the base URL in Ollama Setup.",
+          ),
+        );
         return;
       }
       handlers.onError(error);

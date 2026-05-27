@@ -245,6 +245,7 @@ const api = {
   startMessageStream: (input: {
     threadId: string;
     content: string;
+    ollama?: { model: string; baseUrl: string };
   }): Promise<StreamStartResult> =>
     ipcRenderer.invoke(IPC.MESSAGE_STREAM_START, input),
 

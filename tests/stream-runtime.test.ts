@@ -17,7 +17,11 @@ import {
   updateContinuitySummary,
 } from "../electron/main/services/workspace-service";
 import { DEFAULT_CONTEXT_MESSAGE_LIMIT } from "../electron/main/services/context-assembly";
-import { saveProviderConfig } from "../electron/main/services/provider-service";
+import {
+  __setSecureStorageForTests,
+  saveProviderConfig,
+} from "../electron/main/services/provider-service";
+import { MemorySecureStorageStub } from "../electron/main/secure-storage/memory-stub";
 
 const mockSender = {
   isDestroyed: () => false,
@@ -26,8 +30,10 @@ const mockSender = {
 
 describe("stream runtime", () => {
   const cleanups: Array<() => void> = [];
+  const secureStorageStub = new MemorySecureStorageStub();
 
   beforeEach(() => {
+    __setSecureStorageForTests(secureStorageStub);
     resetProviderAdapters();
     const mock = new MockProviderAdapter();
     mock.chunks = ["Partial", " ", "response"];
@@ -36,6 +42,7 @@ describe("stream runtime", () => {
   });
 
   afterEach(() => {
+    __setSecureStorageForTests(null);
     resetProviderAdapters();
     while (cleanups.length) cleanups.pop()?.();
   });
@@ -166,6 +173,58 @@ describe("stream runtime", () => {
     expect(assistant?.model).toBe("mock-model");
   });
 
+  it("uses ready Ollama override when a legacy cloud provider row is still enabled", async () => {
+    const db = session();
+    const ws = createWorkspace(db, "Legacy cloud");
+    const thread = createThread(db, ws.id, "Chat");
+    saveProviderConfig(db, ws.id, "anthropic", "claude-3-5-haiku-latest", "sk-ant-x", "");
+    saveProviderConfig(db, ws.id, "openai", "gpt-4.1-mini", "sk-openai-x", "");
+
+    const mock = getProviderAdapter("ollama") as MockProviderAdapter;
+    const result = await startAssistantStream(db, mockSender, {
+      threadId: thread.id,
+      content: "hello",
+      ollama: {
+        model: "llama3.1:latest",
+        baseUrl: "http://127.0.0.1:11500",
+      },
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.streamId).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(mock.lastConnection).toBe("http://127.0.0.1:11500");
+    expect(mock.lastStreamRequest?.model).toBe("llama3.1:latest");
+    expect(String(result.error ?? "")).not.toMatch(/select a local model/i);
+    const assistant = listMessages(db, thread.id).find((message) => message.role === "assistant");
+    expect(assistant?.content).toBe("Partial response");
+  });
+
+  it("disables legacy providers when Ollama is saved for chat", async () => {
+    const db = session();
+    const ws = createWorkspace(db, "Ollama wins");
+    const thread = createThread(db, ws.id, "Chat");
+    saveProviderConfig(db, ws.id, "anthropic", "claude-3-5-haiku-latest", "sk-ant-x", "");
+    saveProviderConfig(db, ws.id, "ollama", "llama3.1:latest", "", "http://127.0.0.1:11500");
+
+    const enabled = db
+      .prepare(
+        "SELECT provider, enabled FROM provider_configs WHERE workspace_id = ? ORDER BY provider",
+      )
+      .all(ws.id) as Array<{ provider: string; enabled: number }>;
+    expect(enabled.find((row) => row.provider === "anthropic")?.enabled).toBe(0);
+    expect(enabled.find((row) => row.provider === "ollama")?.enabled).toBe(1);
+
+    const result = await startAssistantStream(db, mockSender, {
+      threadId: thread.id,
+      content: "hello",
+    });
+
+    expect(result.streamId).toBeTruthy();
+    expect(String(result.error ?? "")).not.toMatch(/select a local model/i);
+  });
+
   it("returns calm error when no provider is configured", async () => {
     const db = session();
     const ws = createWorkspace(db, "No provider");
@@ -178,7 +237,7 @@ describe("stream runtime", () => {
 
     expect(result.userMessage?.content).toBe("Hello");
     expect(result.assistantMessage).toBeNull();
-    expect(result.error).toMatch(/Ollama is required/i);
+    expect(result.error).toMatch(/Select a local Ollama model/i);
     expect(listMessages(db, thread.id)).toHaveLength(1);
     expect(listMessages(db, thread.id)[0].content).toBe("Hello");
   });

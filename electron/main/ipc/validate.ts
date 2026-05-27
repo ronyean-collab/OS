@@ -26,14 +26,28 @@ export function assertStreamId(value: unknown): string {
 export function assertSendMessageInput(value: unknown): {
   threadId: string;
   content: string;
+  ollama?: { model: string; baseUrl: string };
 } {
   if (!value || typeof value !== "object") {
     throw new Error("Invalid message input.");
   }
   const o = value as Record<string, unknown>;
+  let ollama: { model: string; baseUrl: string } | undefined;
+  if (o.ollama != null) {
+    if (typeof o.ollama !== "object") {
+      throw new Error("Invalid Ollama override.");
+    }
+    const override = o.ollama as Record<string, unknown>;
+    const model = typeof override.model === "string" ? override.model.trim() : "";
+    const baseUrl = typeof override.baseUrl === "string" ? override.baseUrl.trim() : "";
+    if (model && baseUrl) {
+      ollama = { model, baseUrl };
+    }
+  }
   return {
     threadId: assertThreadId(o.threadId),
     content: assertNonEmptyString(o.content, "content"),
+    ollama,
   };
 }
 

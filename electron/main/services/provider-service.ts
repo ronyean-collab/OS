@@ -71,10 +71,28 @@ function mapConfig(db: Database.Database, row: Record<string, unknown>): Provide
   };
 }
 
+export function getOllamaProviderConfig(
+  db: Database.Database,
+  workspaceId: string,
+): ProviderConfig | null {
+  const row = db
+    .prepare(
+      `SELECT * FROM provider_configs
+       WHERE workspace_id = ? AND provider = 'ollama' AND enabled = 1
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get(workspaceId) as Record<string, unknown> | undefined;
+  return row ? mapConfig(db, row) : null;
+}
+
 export function getProviderConfig(
   db: Database.Database,
   workspaceId: string,
 ): ProviderConfig | null {
+  const ollama = getOllamaProviderConfig(db, workspaceId);
+  if (ollama) {
+    return ollama;
+  }
   const row = db
     .prepare(
       "SELECT * FROM provider_configs WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT 1",
@@ -136,6 +154,12 @@ export function saveProviderConfig(
 
   const now = new Date().toISOString();
   const id = existing?.id ?? uuid();
+
+  if (normalizedProvider === "ollama") {
+    db.prepare(
+      `UPDATE provider_configs SET enabled = 0, updated_at = ? WHERE workspace_id = ? AND provider != ?`,
+    ).run(now, workspaceId, normalizedProvider);
+  }
 
   if (existing) {
     db.prepare(

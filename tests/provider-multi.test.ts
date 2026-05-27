@@ -66,7 +66,7 @@ describe("multi-provider setup", () => {
     );
     expect(result.userMessage).toBeTruthy();
     expect(result.assistantMessage).toBeNull();
-    expect(result.error).toMatch(/Ollama is the only in-app chat engine enabled/i);
+    expect(result.error).toMatch(/In-app chat uses Ollama only/i);
   });
 
   it("legacy openai config still persists, but is no longer runtime-ready", () => {

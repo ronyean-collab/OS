@@ -490,7 +490,8 @@ export function App() {
               threadId: activeThread.id,
               sourceMessageId: latestSentUserMessageIdRef.current,
               error: event.error,
-              providerConfigured: isProviderConfigured(providerConfig),
+              providerConfigured:
+                activeOllamaChat.ready || isProviderConfigured(providerConfig),
             })
           : null;
         if (!event.cancelled) {
@@ -748,6 +749,14 @@ export function App() {
     const result = await continuity.startMessageStream({
       threadId: activeThread.id,
       content,
+      ...(activeOllamaChat.ready && activeOllamaChat.model && activeOllamaChat.baseUrl
+        ? {
+            ollama: {
+              model: activeOllamaChat.model,
+              baseUrl: activeOllamaChat.baseUrl,
+            },
+          }
+        : {}),
     });
 
     const next: Message[] = [];
@@ -768,7 +777,8 @@ export function App() {
         threadId: activeThread.id,
         sourceMessageId: result.userMessage?.id ?? null,
         error: result.error,
-        providerConfigured: isProviderConfigured(providerConfig),
+        providerConfigured:
+          activeOllamaChat.ready || isProviderConfigured(providerConfig),
       });
       if (fallback) {
         setManualFallback(fallback);
@@ -792,7 +802,8 @@ export function App() {
       const fallback = buildManualFallbackState({
         threadId: activeThread.id,
         sourceMessageId: result.userMessage?.id ?? null,
-        providerConfigured: isProviderConfigured(providerConfig),
+        providerConfigured:
+          activeOllamaChat.ready || isProviderConfigured(providerConfig),
       });
       if (fallback) {
         setManualFallback(fallback);
