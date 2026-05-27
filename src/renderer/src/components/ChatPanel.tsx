@@ -165,6 +165,7 @@ export function ChatPanel({
     if (!text || !thread || disabled || streaming) return;
     setDraft("");
     setGuideStatus(null);
+    requestAnimationFrame(resizeComposer);
     await onSend(text);
   };
 
@@ -212,11 +213,28 @@ export function ChatPanel({
     hasStreamError: streamError != null,
   });
 
+  const resizeComposer = () => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(180, Math.max(72, el.scrollHeight));
+    el.style.height = `${next}px`;
+  };
+
+  useEffect(() => {
+    resizeComposer();
+  }, [draft, thread?.id]);
+
   const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void submit();
     }
+  };
+
+  const handleDraftChange = (value: string) => {
+    setDraft(value);
+    requestAnimationFrame(resizeComposer);
   };
 
   const handleCopyContextPack = async () => {
@@ -421,43 +439,53 @@ export function ChatPanel({
         )}
       </div>
 
-      <form
-        className="composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        {modelBadge && (
-          <p className="composer-model-badge muted small" aria-label="Active model">
-            Model: <span className="mono">{modelBadge}</span>
+      <div className="chat-composer-shell">
+        <form
+          className="chat-composer-inner"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          {modelBadge && (
+            <p className="chat-composer-meta muted small" aria-label="Active model">
+              Model: <span className="mono">{modelBadge}</span>
+            </p>
+          )}
+          <div className="chat-composer-row">
+            <textarea
+              ref={composerRef}
+              className="chat-input"
+              value={draft}
+              onChange={(e) => handleDraftChange(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder={thread ? "Ask anything about this project…" : "Select a thread first"}
+              disabled={!thread || disabled || streaming}
+              rows={3}
+            />
+            {streaming ? (
+              <button
+                type="button"
+                className="chat-send-button cancel"
+                onClick={onCancelStream}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="chat-send-button"
+                disabled={!thread || disabled || !draft.trim()}
+              >
+                Send
+              </button>
+            )}
+          </div>
+          <p className="muted small chat-composer-hint">
+            Chat with Ollama. ContinuityOS saves and compresses memory in the background.
           </p>
-        )}
-        <textarea
-          ref={composerRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleComposerKeyDown}
-          placeholder={thread ? "Ask anything about this project…" : "Select a thread first"}
-          disabled={!thread || disabled || streaming}
-          rows={3}
-        />
-        {streaming ? (
-          <button type="button" className="cancel" onClick={onCancelStream}>
-            Cancel
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!thread || disabled || !draft.trim()}
-          >
-            Send
-          </button>
-        )}
-        <p className="muted small composer-manual-hint">
-          Chat with Ollama. ContinuityOS saves and compresses memory in the background.
-        </p>
-      </form>
+        </form>
+      </div>
     </section>
   );
 }
