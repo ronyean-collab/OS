@@ -970,6 +970,12 @@ export function ChatWorkflowPanel({
               ContinuityOS now uses Ollama as the only in-app chat engine. Local memory, backups,
               and markdown portability still work while Ollama is offline.
             </p>
+            {!localAiStatus?.detected && (
+              <p className="muted small">
+                If Ollama is running on a different local address, open Ollama Tools and enter the
+                base URL there before detecting again.
+              </p>
+            )}
           </section>
           {localAiStatus?.models?.length ? (
             <label className="chat-workflow-field">

@@ -728,9 +728,15 @@ export function registerIpcHandlers(): void {
     return getProviderConfig(db, assertNonEmptyString(workspaceId, "workspaceId"));
   });
 
-  ipcMain.handle(IPC.LOCAL_AI_STATUS, async (_e, workspaceId: unknown) => {
+  ipcMain.handle(IPC.LOCAL_AI_STATUS, async (_e, workspaceId: unknown, preferredBaseUrl?: unknown) => {
     const db = requireDb();
-    return getLocalAiStatus(db, assertNonEmptyString(workspaceId, "workspaceId"));
+    const preferred =
+      typeof preferredBaseUrl === "string" ? preferredBaseUrl : undefined;
+    return getLocalAiStatus(
+      db,
+      assertNonEmptyString(workspaceId, "workspaceId"),
+      preferred,
+    );
   });
 
   ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_STATUS, () => {

@@ -18,6 +18,7 @@ describe("local AI / Ollama", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     while (cleanups.length) cleanups.pop()?.();
   });
 
@@ -30,6 +31,7 @@ describe("local AI / Ollama", () => {
   it("returns a calm not-running status when Ollama is unavailable", async () => {
     const db = session();
     const workspace = createWorkspace(db, "Local AI");
+    vi.stubEnv("OLLAMA_HOST", "");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
 
     const status = await getLocalAiStatus(db, workspace.id);
@@ -39,9 +41,40 @@ describe("local AI / Ollama", () => {
     expect(status.models).toEqual([]);
   });
 
-  it("uses Ollama without an API key and includes imported state in context", async () => {
+  it("detects Ollama on the default 11434 endpoint and lists models", async () => {
+    const db = session();
+    const workspace = createWorkspace(db, "Default Ollama");
+    vi.stubEnv("OLLAMA_HOST", "");
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "http://localhost:11434/api/tags") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              models: [{ name: "llama3.1" }, { name: "mistral" }],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const status = await getLocalAiStatus(db, workspace.id);
+    expect(status.detected).toBe(true);
+    expect(status.state).toBe("ollama_ready");
+    expect(status.baseUrl).toBe("http://localhost:11434");
+    expect(status.models).toEqual(["llama3.1", "mistral"]);
+  });
+
+  it("detects Ollama on fallback port 11500 and uses the detected URL for chat", async () => {
     const db = session();
     const workspace = createWorkspace(db, "Ollama workspace");
+    vi.stubEnv("OLLAMA_HOST", "");
     updateContinuitySummary(db, workspace.id, "Keep the app local-first.");
     const thread = createThread(db, workspace.id, "Chat");
     saveProviderConfig(db, workspace.id, "ollama", "llama3.1", "", "http://localhost:11434");
@@ -66,19 +99,51 @@ Route chat through local AI when available.
       },
     );
 
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          model: "llama3.1",
-          message: { content: "Local response complete." },
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
-      ),
-    );
+    const fetchMock = vi.fn().mockImplementation((input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (
+        url === "http://localhost:11434/api/tags" ||
+        url === "http://127.0.0.1:11434/api/tags"
+      ) {
+        return Promise.reject(new Error("ECONNREFUSED"));
+      }
+      if (url === "http://localhost:11500/api/tags") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              models: [{ name: "llama3.1" }, { name: "llama3" }, { name: "mistral" }],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      if (url === "http://localhost:11500/api/chat") {
+        const parsed = JSON.parse(String(init?.body)) as { model: string };
+        expect(parsed.model).toBe("llama3.1");
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              model: "llama3.1",
+              message: { content: "Local response complete." },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
     vi.stubGlobal("fetch", fetchMock);
+
+    const status = await getLocalAiStatus(db, workspace.id);
+    expect(status.detected).toBe(true);
+    expect(status.baseUrl).toBe("http://localhost:11500");
+    expect(status.models).toEqual(["llama3.1", "llama3", "mistral"]);
 
     const result = await startAssistantStream(db, mockSender, {
       threadId: thread.id,
@@ -88,11 +153,16 @@ Route chat through local AI when available.
     expect(result.streamId).toBeTruthy();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+    const chatCall = fetchMock.mock.calls.find(
+      (call) => String(call[0]) === "http://localhost:11500/api/chat",
+    );
+    expect(chatCall).toBeTruthy();
+
+    const chatRequestBody = JSON.parse(String(chatCall?.[1]?.body)) as {
       model: string;
       messages: Array<{ role: string; content: string }>;
     };
-    const systemMessage = requestBody.messages.find((message) => message.role === "system");
+    const systemMessage = chatRequestBody.messages.find((message) => message.role === "system");
     expect(systemMessage?.content).toContain("Keep the app local-first.");
     expect(systemMessage?.content).toContain("Route chat through local AI when available.");
     expect(systemMessage?.content).toContain("Local AI is optional");
@@ -103,5 +173,36 @@ Route chat through local AI when available.
     const assistant = messages.find((message) => message.role === "assistant");
     expect(assistant?.provider).toBe("ollama");
     expect(assistant?.model).toBe("llama3.1");
+  });
+
+  it("prefers OLLAMA_HOST when it is configured", async () => {
+    const db = session();
+    const workspace = createWorkspace(db, "Env Ollama");
+    vi.stubEnv("OLLAMA_HOST", "127.0.0.1:11500");
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:11500/api/tags") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              models: [{ name: "llama3.1" }],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const status = await getLocalAiStatus(db, workspace.id);
+    expect(status.detected).toBe(true);
+    expect(status.baseUrl).toBe("http://127.0.0.1:11500");
+    expect(status.models).toEqual(["llama3.1"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("http://127.0.0.1:11500/api/tags");
   });
 });

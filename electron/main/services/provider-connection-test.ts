@@ -91,7 +91,9 @@ export async function testOllamaConnection(
   baseUrl: string,
   model: string,
 ): Promise<ProviderTestResult> {
-  const url = `${baseUrl.replace(/\/$/, "")}/api/tags`;
+  const trimmed = baseUrl.trim();
+  const normalizedBaseUrl = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const url = `${normalizedBaseUrl.replace(/\/$/, "")}/api/tags`;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8_000);

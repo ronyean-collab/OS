@@ -360,8 +360,11 @@ const api = {
   ): Promise<ProviderConfig | null> =>
     ipcRenderer.invoke(IPC.PROVIDER_REMOVE_KEY, workspaceId, provider),
 
-  getLocalAiStatus: (workspaceId: string): Promise<LocalAiStatus> =>
-    ipcRenderer.invoke(IPC.LOCAL_AI_STATUS, workspaceId),
+  getLocalAiStatus: (
+    workspaceId: string,
+    preferredBaseUrl?: string,
+  ): Promise<LocalAiStatus> =>
+    ipcRenderer.invoke(IPC.LOCAL_AI_STATUS, workspaceId, preferredBaseUrl),
 
   getEmbeddedLocalAiStatus: (): Promise<EmbeddedLocalLlmStatus> =>
     ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_STATUS),

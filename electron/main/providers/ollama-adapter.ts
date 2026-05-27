@@ -18,7 +18,12 @@ function resolveBaseUrl(connection: string | null): string {
   if (!trimmed) {
     throw new Error("Set the Ollama base URL in Ollama Setup.");
   }
-  return trimmed.replace(/\/$/, "");
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  try {
+    return new URL(withProtocol).toString().replace(/\/$/, "");
+  } catch {
+    throw new Error("Set a valid Ollama base URL in Ollama Setup.");
+  }
 }
 
 async function requestOllamaCompletion(

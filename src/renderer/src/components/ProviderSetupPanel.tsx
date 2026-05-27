@@ -57,8 +57,14 @@ export function ProviderSetupPanel({
     if (!window.continuity?.getLocalAiStatus) return;
     setLoadingLocalAi(true);
     try {
-      const status = await window.continuity.getLocalAiStatus(workspaceId);
+      const status = await window.continuity.getLocalAiStatus(
+        workspaceId,
+        baseUrl.trim() || undefined,
+      );
       setLocalAiStatus(status);
+      if (status.detected && status.baseUrl) {
+        setBaseUrl(status.baseUrl);
+      }
       if (status.selectedModel) {
         setLocalModel(status.selectedModel);
       } else if (status.models.length > 0) {
@@ -202,6 +208,13 @@ export function ProviderSetupPanel({
             placeholder={ollamaDef.defaultBaseUrl ?? "http://localhost:11434"}
           />
         </label>
+        {!localAiStatus?.detected && (
+          <p className="muted small">
+            ContinuityOS checks `OLLAMA_HOST` first, then the common local URLs on ports `11434`
+            and `11500`. If your Ollama server uses another address, enter it here and click
+            `Detect Ollama`.
+          </p>
+        )}
         <label>
           Selected Ollama model
           <select
