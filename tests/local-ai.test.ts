@@ -77,7 +77,14 @@ describe("local AI / Ollama", () => {
     vi.stubEnv("OLLAMA_HOST", "");
     updateContinuitySummary(db, workspace.id, "Keep the app local-first.");
     const thread = createThread(db, workspace.id, "Chat");
-    saveProviderConfig(db, workspace.id, "ollama", "llama3.1", "", "http://localhost:11434");
+    saveProviderConfig(
+      db,
+      workspace.id,
+      "ollama",
+      "llama3.1:latest",
+      "",
+      "http://localhost:11434",
+    );
     applyContinuityImportFile(
       db,
       {
@@ -122,11 +129,11 @@ Route chat through local AI when available.
       }
       if (url === "http://localhost:11500/api/chat") {
         const parsed = JSON.parse(String(init?.body)) as { model: string };
-        expect(parsed.model).toBe("llama3.1");
+        expect(parsed.model).toBe("llama3.1:latest");
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              model: "llama3.1",
+              model: "llama3.1:latest",
               message: { content: "Local response complete." },
             }),
             {
@@ -144,6 +151,8 @@ Route chat through local AI when available.
     expect(status.detected).toBe(true);
     expect(status.baseUrl).toBe("http://localhost:11500");
     expect(status.models).toEqual(["llama3.1", "llama3", "mistral"]);
+    expect(status.selected).toBe(true);
+    expect(status.selectedModel).toBe("llama3.1:latest");
 
     const result = await startAssistantStream(db, mockSender, {
       threadId: thread.id,
@@ -172,7 +181,7 @@ Route chat through local AI when available.
     expect(messages.some((message) => message.content === "Local response complete.")).toBe(true);
     const assistant = messages.find((message) => message.role === "assistant");
     expect(assistant?.provider).toBe("ollama");
-    expect(assistant?.model).toBe("llama3.1");
+    expect(assistant?.model).toBe("llama3.1:latest");
   });
 
   it("prefers OLLAMA_HOST when it is configured", async () => {

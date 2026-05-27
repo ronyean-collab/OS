@@ -143,6 +143,29 @@ describe("stream runtime", () => {
     );
   });
 
+  it("routes ready Ollama chat through the selected local model and detected base URL", async () => {
+    const db = session();
+    const ws = createWorkspace(db, "Detected Ollama");
+    const thread = createThread(db, ws.id, "Chat");
+    saveProviderConfig(db, ws.id, "ollama", "llama3.1:latest", "", "http://127.0.0.1:11500");
+
+    const mock = getProviderAdapter("ollama") as MockProviderAdapter;
+    const result = await startAssistantStream(db, mockSender, {
+      threadId: thread.id,
+      content: "Summarize this project",
+    });
+
+    expect(result.streamId).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(mock.lastConnection).toBe("http://127.0.0.1:11500");
+    expect(mock.lastStreamRequest?.model).toBe("llama3.1:latest");
+    const assistant = listMessages(db, thread.id).find((message) => message.role === "assistant");
+    expect(assistant?.content).toBe("Partial response");
+    expect(assistant?.provider).toBe("ollama");
+    expect(assistant?.model).toBe("mock-model");
+  });
+
   it("returns calm error when no provider is configured", async () => {
     const db = session();
     const ws = createWorkspace(db, "No provider");

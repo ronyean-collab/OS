@@ -111,6 +111,13 @@ function emit(
   }
 }
 
+function logOllamaRoute(details: Record<string, unknown>): void {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+  console.info("[continuity] ollama route", details);
+}
+
 export async function startAssistantStream(
   db: Database.Database,
   sender: WebContents,
@@ -196,6 +203,12 @@ export async function startAssistantStream(
   const adapter = getProviderAdapter(provider);
 
   if (!adapter || !adapter.isConfigured(connectionValue)) {
+    logOllamaRoute({
+      route: "unavailable",
+      provider,
+      model,
+      baseUrl: provider === "ollama" ? connectionValue : null,
+    });
     return {
       streamId: null,
       userMessage,
@@ -215,11 +228,22 @@ export async function startAssistantStream(
         error: "Set the Ollama base URL in Ollama Setup.",
       };
     }
+    logOllamaRoute({
+      route: "ollama",
+      provider,
+      model,
+      baseUrl,
+      threadId,
+      workspaceId,
+    });
   }
 
-  const history = listMessagesPage(db, threadId, {
+  const historyPage = listMessagesPage(db, threadId, {
     limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,
   }).messages;
+  const history = historyPage.some((message) => message.id === userMessage.id)
+    ? historyPage
+    : [...historyPage.slice(-(DEFAULT_CONTEXT_MESSAGE_LIMIT - 1)), userMessage];
   const ws = getWorkspaceById(db, workspaceId);
   const importedState = getLatestAppliedContinuityImport(db, workspaceId);
   const { messages: contextMessages, estimatedTokens } = assembleProviderContext({
@@ -363,6 +387,15 @@ async function runStream(args: {
           if (isCancel) {
             setMessageStatus(db, session.assistantMessageId, "cancelled");
           } else {
+            logOllamaRoute({
+              route: "error",
+              provider,
+              model,
+              baseUrl: connectionValue,
+              error: error.message,
+              threadId: session.threadId,
+              workspaceId: session.workspaceId,
+            });
             setMessageStatus(db, session.assistantMessageId, "failed");
             appendTimelineEvent(db, {
               workspaceId: session.workspaceId,

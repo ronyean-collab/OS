@@ -1,3 +1,4 @@
+import type { LocalAiState } from "@shared/types";
 import type { GuidanceCard, GuidanceState } from "./guided-routines";
 
 export type ConversationalShellIntent =
@@ -170,6 +171,47 @@ export function buildConversationalShellCard(input: {
       { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
       { id: "review_project_memory", label: "Review Memory" },
       { id: "backup_export", label: "Backup / Export" },
+    ],
+  };
+}
+
+export function buildChatFailureCard(input: {
+  baseUrl?: string | null;
+  error?: string | null;
+  localAiState?: LocalAiState | null;
+  providerReady?: boolean;
+  selectedModel?: string | null;
+}): GuidanceCard {
+  const modelLabel = input.selectedModel?.trim() || "the selected Ollama model";
+  const baseUrlLabel = input.baseUrl?.trim() || "the detected Ollama server";
+  const readyForChat =
+    input.providerReady === true ||
+    (input.localAiState === "ollama_ready" && Boolean(input.selectedModel?.trim()));
+
+  if (!readyForChat) {
+    return {
+      state: "context_pack_ready",
+      title: "I saved your message locally.",
+      body:
+        "Ollama is not ready yet. Start or select Ollama to get in-app replies here. Your local memory, imports, and backups are still available.",
+      footer: null,
+      actions: [
+        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "review_project_memory", label: "Review Memory" },
+        { id: "backup_export", label: "Backup / Export" },
+      ],
+    };
+  }
+
+  return {
+    state: "local_ai_available",
+    title: "Ollama reply failed",
+    body: `Your message was saved locally, but Ollama could not finish a reply with ${modelLabel} at ${baseUrlLabel}. Retry in chat, or open Ollama Setup to detect the local server again.`,
+    footer: input.error?.trim() ? `Last Ollama error: ${input.error.trim()}` : null,
+    actions: [
+      { id: "continue_chatting", label: "Retry in Chat", tone: "primary" },
+      { id: "set_up_local_ai", label: "Detect Ollama Again" },
+      { id: "review_project_memory", label: "Review Memory" },
     ],
   };
 }

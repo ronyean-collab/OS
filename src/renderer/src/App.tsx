@@ -51,7 +51,7 @@ import {
   type ActiveChatWorkflow,
   type ChatWorkflowSession,
 } from "./chat-workflows";
-import { buildConversationalShellCard } from "./conversational-shell";
+import { buildChatFailureCard, buildConversationalShellCard } from "./conversational-shell";
 
 function PreloadBridgeFallback() {
   const isDev = import.meta.env.DEV;
@@ -408,6 +408,46 @@ export function App() {
     [guidanceImportedSource, guidanceState, messages, workspace?.continuitySummary],
   );
 
+  const activeOllamaChat = useMemo(() => {
+    const configuredModel =
+      providerConfig?.provider === "ollama" ? providerConfig.model.trim() : "";
+    const detectedModel = localAiStatus?.selectedModel?.trim() ?? "";
+    const configuredBaseUrl =
+      providerConfig?.provider === "ollama" ? providerConfig.baseUrl?.trim() ?? "" : "";
+    const detectedBaseUrl = localAiStatus?.baseUrl?.trim() ?? "";
+    const selected =
+      localAiStatus?.selected === true ||
+      (providerConfig?.provider === "ollama" && providerConfig.enabled);
+    const model = detectedModel || configuredModel;
+    const baseUrl = detectedBaseUrl || configuredBaseUrl;
+    const ready =
+      localAiStatus?.state === "ollama_ready" && selected && Boolean(model) && Boolean(baseUrl);
+
+    return {
+      baseUrl: baseUrl || null,
+      model: model || null,
+      ready,
+      selected,
+    };
+  }, [localAiStatus, providerConfig]);
+
+  const buildSendFailureGuide = useCallback(
+    (error?: string | null) =>
+      buildChatFailureCard({
+        error,
+        localAiState: localAiStatus?.state ?? null,
+        providerReady: activeOllamaChat.ready,
+        selectedModel: activeOllamaChat.model,
+        baseUrl: activeOllamaChat.baseUrl,
+      }),
+    [
+      activeOllamaChat.baseUrl,
+      activeOllamaChat.model,
+      activeOllamaChat.ready,
+      localAiStatus?.state,
+    ],
+  );
+
   useEffect(() => {
     const cleanup = continuity.onStreamEvents({
       onDelta: (event: StreamDeltaEvent) => {
@@ -457,17 +497,12 @@ export function App() {
           if (fallback) {
             setManualFallback(fallback);
             setStreamError(null);
-            setConversationalGuideCard(
-              buildConversationalShellCard({
-                message: latestSentContentRef.current || "why are you not answering",
-                guidanceState,
-                localAiDetected: localAiStatus?.detected ?? null,
-                workspaceName: workspace?.name ?? null,
-              }),
-            );
-            updateGuidance(
-              transitionGuidanceState(guidanceState, "message_saved_without_provider"),
-            );
+            setConversationalGuideCard(buildSendFailureGuide(event.error));
+            if (!activeOllamaChat.ready) {
+              updateGuidance(
+                transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+              );
+            }
           } else {
             setStreamError(event.error);
             setManualFallback(null);
@@ -485,7 +520,9 @@ export function App() {
     });
     return cleanup;
   }, [
+    activeOllamaChat.ready,
     activeThread,
+    buildSendFailureGuide,
     closeChatWorkflow,
     guidanceState,
     providerConfig,
@@ -665,7 +702,36 @@ export function App() {
       return;
     }
 
-    if (!providerSendEnabled) {
+    if (import.meta.env.DEV) {
+      console.info("[continuity] chat send route", {
+        activeEngine: activeOllamaChat.ready ? "ollama" : "guide",
+        selectedModel: activeOllamaChat.model,
+        baseUrl: activeOllamaChat.baseUrl,
+        route: activeOllamaChat.ready ? "ollama" : "guide",
+      });
+    }
+
+    if (
+      workspace &&
+      activeOllamaChat.ready &&
+      (
+        providerConfig?.provider !== "ollama" ||
+        !providerConfig.enabled ||
+        providerConfig.model.trim() !== activeOllamaChat.model ||
+        (providerConfig.baseUrl?.trim() ?? "") !== activeOllamaChat.baseUrl
+      )
+    ) {
+      const syncedConfig = await continuity.saveProviderConfig(
+        workspace.id,
+        "ollama",
+        activeOllamaChat.model ?? "",
+        "",
+        activeOllamaChat.baseUrl,
+      );
+      setProviderConfig(syncedConfig);
+    }
+
+    if (!activeOllamaChat.ready) {
       await saveLocalMessage();
       updateGuidance(transitionGuidanceState(guidanceState, "message_saved_without_provider"));
       setConversationalGuideCard(
@@ -706,17 +772,12 @@ export function App() {
       });
       if (fallback) {
         setManualFallback(fallback);
-        updateGuidance(
-          transitionGuidanceState(guidanceState, "message_saved_without_provider"),
-        );
-        setConversationalGuideCard(
-          buildConversationalShellCard({
-            message: content,
-            guidanceState,
-            localAiDetected: localAiStatus?.detected ?? null,
-            workspaceName: workspace?.name ?? null,
-          }),
-        );
+        if (!activeOllamaChat.ready) {
+          updateGuidance(
+            transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+          );
+        }
+        setConversationalGuideCard(buildSendFailureGuide(result.error));
       } else {
         setStreamError(result.error);
       }
@@ -735,17 +796,12 @@ export function App() {
       });
       if (fallback) {
         setManualFallback(fallback);
-        updateGuidance(
-          transitionGuidanceState(guidanceState, "message_saved_without_provider"),
-        );
-        setConversationalGuideCard(
-          buildConversationalShellCard({
-            message: content,
-            guidanceState,
-            localAiDetected: localAiStatus?.detected ?? null,
-            workspaceName: workspace?.name ?? null,
-          }),
-        );
+        if (!activeOllamaChat.ready) {
+          updateGuidance(
+            transitionGuidanceState(guidanceState, "message_saved_without_provider"),
+          );
+        }
+        setConversationalGuideCard(buildSendFailureGuide());
       }
       if (workspace) await refreshOpsPanels(workspace.id);
     }
@@ -1081,17 +1137,14 @@ export function App() {
     }
   };
 
-  const providerSendEnabled =
-    providerConfig?.provider === "ollama" &&
-    isProviderConfigured(providerConfig) &&
-    providerConfig.runtimeReady;
+  const providerSendEnabled = activeOllamaChat.ready;
   const providerBadge = providerSendEnabled
-    ? `Ollama local AI · ${providerConfig?.model ?? "UNKNOWN"}`
+    ? `Ollama local AI · ${activeOllamaChat.model ?? "UNKNOWN"}`
     : null;
-  const modelBadge = providerSendEnabled ? providerConfig?.model ?? null : null;
+  const modelBadge = providerSendEnabled ? activeOllamaChat.model ?? null : null;
   const ollamaStatusLabel =
-    providerSendEnabled && providerConfig?.model
-      ? `Ollama local AI · ${providerConfig.model}`
+    providerSendEnabled && activeOllamaChat.model
+      ? `Ollama local AI · ${activeOllamaChat.model}`
       : localAiStatus?.state === "ollama_ready"
         ? "Ollama detected · select a model to chat"
         : localAiStatus?.state === "ollama_detected_no_model"

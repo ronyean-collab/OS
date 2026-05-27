@@ -9,7 +9,7 @@ export type ManualFallbackState = {
 
 const THREAD_OR_WORKSPACE_ERROR_RE = /thread|workspace/i;
 const NO_PROVIDER_ERROR_RE =
-  /ollama is required|ollama setup|base url|only in app chat engine enabled|not fully configured/i;
+  /ollama is required|only in app chat engine enabled|not fully configured/i;
 
 export function getManualFallbackMessage(kind: ManualFallbackKind): string {
   if (kind === "provider-unavailable") {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChatFailureCard,
   buildConversationalShellCard,
   classifyConversationalShellIntent,
 } from "../src/renderer/src/conversational-shell";
@@ -44,6 +45,35 @@ describe("conversational shell", () => {
     expect(card.body).toContain("Ollama is not ready yet");
     expect(card.actions.map((action) => action.label)).toContain("Set Up Ollama");
     expect(card.actions.map((action) => action.label)).toContain("Backup / Export");
+  });
+
+  it("shows a compact Ollama failure guide when ready chat routing fails", () => {
+    const card = buildChatFailureCard({
+      localAiState: "ollama_ready",
+      providerReady: true,
+      selectedModel: "llama3.1:latest",
+      baseUrl: "http://127.0.0.1:11500",
+      error: "connect ECONNREFUSED 127.0.0.1:11500",
+    });
+
+    expect(card.title).toContain("reply failed");
+    expect(card.body).toContain("llama3.1:latest");
+    expect(card.body).toContain("http://127.0.0.1:11500");
+    expect(card.actions.map((action) => action.label)).toContain("Retry in Chat");
+    expect(card.actions.map((action) => action.label)).toContain("Detect Ollama Again");
+    expect(card.footer).toContain("ECONNREFUSED");
+  });
+
+  it("keeps setup guidance when Ollama is not ready", () => {
+    const card = buildChatFailureCard({
+      localAiState: "ollama_not_detected",
+      providerReady: false,
+      error: "Ollama is required for AI replies.",
+    });
+
+    expect(card.title).toContain("saved");
+    expect(card.body).toContain("Ollama is not ready yet");
+    expect(card.actions.map((action) => action.label)).toContain("Set Up Ollama");
   });
 
   it("keeps workflow commands out of the conversational fallback path", () => {
