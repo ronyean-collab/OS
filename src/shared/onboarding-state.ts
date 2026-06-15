@@ -1,3 +1,5 @@
+import { isOllamaOnlyChatMode } from "./ollama-only-mode";
+
 /** First-run onboarding persistence (renderer localStorage). */
 
 export type OnboardingProviderChoiceId =
@@ -12,36 +14,66 @@ export type OnboardingState = {
   onboardingCompleted: boolean;
   preferredProvider: string | null;
   providerConfigured: boolean;
+  assistantPreparationCompleted?: boolean;
+  manualModeAccepted?: boolean;
+  wizardStep?: number;
+  selectedChoice?: OnboardingProviderChoiceId | null;
+  connectionTestPassed?: boolean;
 };
 
-export const ONBOARDING_STORAGE_VERSION = 1;
+export const ONBOARDING_STORAGE_VERSION = 3;
 
 export const ONBOARDING_PROVIDER_CHOICES: ReadonlyArray<{
   id: OnboardingProviderChoiceId;
   label: string;
+  description: string;
+  recommended?: boolean;
 }> = [
-  { id: "openai", label: "OpenAI / ChatGPT" },
-  { id: "anthropic", label: "Claude" },
-  { id: "google", label: "Gemini" },
-  { id: "openrouter", label: "OpenRouter" },
-  { id: "ollama", label: "Local Ollama" },
-  { id: "later", label: "I'll choose later" },
+  {
+    id: "ollama",
+    label: "Ollama (on this computer)",
+    description: "Chat inside ContinuityOS with a local AI.",
+    recommended: true,
+  },
+  {
+    id: "later",
+    label: "Set up later",
+    description: "Start chatting manually — connect an AI anytime from Workspace.",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    description: "Save your preference — connect in Workspace when ready.",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    description: "Save your preference — connect in Workspace when ready.",
+  },
+  {
+    id: "anthropic",
+    label: "Claude",
+    description: "Save your preference — connect in Workspace when ready.",
+  },
+  {
+    id: "google",
+    label: "Gemini",
+    description: "Save your preference — connect in Workspace when ready.",
+  },
 ] as const;
 
 export const WELCOME_COPY = {
   title: "Welcome to ContinuityOS",
-  tagline:
-    "ContinuityOS keeps your AI work organized so you can continue in any AI without losing context.",
-  question: "Manual Mode is ready.",
-  subtitle:
-    "Open a thread, copy a Context Pack into any AI, and paste the reply back here. API providers are optional.",
+  tagline: "A calm place to work with an assistant that stays with you.",
+  question: "How would you like to start?",
+  subtitle: "Name your assistant and start chatting.",
 } as const;
 
 export const NO_PROVIDER_BANNER_COPY =
-  "Manual Mode is ready. You can copy a Context Pack into any AI and paste the response back here. API providers are optional in Project tools.";
+  "You can chat manually anytime. Connect an AI provider from Workspace when you are ready.";
 
 export const CHOOSE_LATER_HINT_COPY =
-  "Manual Mode is ready. You can connect an AI provider anytime from Project tools.";
+  "You can connect an AI provider anytime from Workspace → Providers.";
 
 export type StorageLike = {
   getItem(key: string): string | null;
@@ -65,14 +97,15 @@ export function mapChoiceToProviderId(
   choiceId: OnboardingProviderChoiceId,
 ): string | null {
   if (choiceId === "later") return null;
+  if (isOllamaOnlyChatMode() && choiceId !== "ollama") return null;
   return choiceId;
 }
 
-/** After onboarding, provider choices open the Provider tab; choose-later stays on overview. */
+/** After onboarding, chat-first — AI providers live in Settings. */
 export function postOnboardingOpsTab(
-  choiceId: OnboardingProviderChoiceId,
-): "provider" | "overview" {
-  return choiceId === "later" ? "overview" : "provider";
+  _choiceId: OnboardingProviderChoiceId,
+): "providers" | "backups" | "settings" {
+  return "settings";
 }
 
 export function loadOnboardingState(
@@ -80,7 +113,13 @@ export function loadOnboardingState(
   workspaceId: string,
 ): OnboardingState {
   const raw = storage.getItem(onboardingStorageKey(workspaceId));
-  if (!raw) return defaultOnboardingState();
+  if (!raw) {
+    return {
+      onboardingCompleted: false,
+      preferredProvider: null,
+      providerConfigured: false,
+    };
+  }
   try {
     const parsed = JSON.parse(raw) as Partial<OnboardingState>;
     return {
@@ -92,9 +131,23 @@ export function loadOnboardingState(
             ? null
             : null,
       providerConfigured: Boolean(parsed.providerConfigured),
+      assistantPreparationCompleted: Boolean(parsed.assistantPreparationCompleted),
+      manualModeAccepted: Boolean(parsed.manualModeAccepted),
+      wizardStep: typeof parsed.wizardStep === "number" ? parsed.wizardStep : undefined,
+      selectedChoice:
+        typeof parsed.selectedChoice === "string"
+          ? (parsed.selectedChoice as OnboardingProviderChoiceId)
+          : null,
+      connectionTestPassed: Boolean(parsed.connectionTestPassed),
     };
   } catch {
-    return defaultOnboardingState();
+    return {
+      onboardingCompleted: false,
+      preferredProvider: null,
+      providerConfigured: false,
+      assistantPreparationCompleted: false,
+      manualModeAccepted: false,
+    };
   }
 }
 
@@ -145,6 +198,24 @@ export function completeOnboardingChooseLater(
   return state;
 }
 
+export function saveWizardProgress(
+  storage: StorageLike,
+  workspaceId: string,
+  progress: Pick<
+    OnboardingState,
+    "wizardStep" | "selectedChoice" | "connectionTestPassed" | "preferredProvider"
+  >,
+): OnboardingState {
+  const current = loadOnboardingState(storage, workspaceId);
+  const next: OnboardingState = {
+    ...current,
+    ...progress,
+    onboardingCompleted: current.onboardingCompleted,
+  };
+  saveOnboardingState(storage, workspaceId, next);
+  return next;
+}
+
 export function syncProviderConfiguredFlag(
   storage: StorageLike,
   workspaceId: string,
@@ -166,3 +237,27 @@ export function welcomeScreenIsMinimal(): boolean {
     )
   );
 }
+
+export function markAssistantPreparationCompleted(
+  storage: StorageLike,
+  workspaceId: string,
+  options?: { manualMode?: boolean },
+): OnboardingState {
+  const current = loadOnboardingState(storage, workspaceId);
+  const next: OnboardingState = {
+    ...current,
+    onboardingCompleted: true,
+    assistantPreparationCompleted: true,
+    manualModeAccepted: Boolean(options?.manualMode),
+    providerConfigured: options?.manualMode ? current.providerConfigured : true,
+    preferredProvider: options?.manualMode ? current.preferredProvider : "ollama",
+  };
+  saveOnboardingState(storage, workspaceId, next);
+  return next;
+}
+
+export function isAssistantPreparationCompleted(state: OnboardingState): boolean {
+  return Boolean(state.assistantPreparationCompleted);
+}
+
+

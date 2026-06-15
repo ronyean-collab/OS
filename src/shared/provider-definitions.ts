@@ -1,3 +1,5 @@
+import { isOllamaOnlyChatMode } from "./ollama-only-mode";
+
 export type ProviderDefinitionStatus = "ready" | "setup_only" | "coming_soon";
 
 export type ProviderModelOption = {
@@ -50,13 +52,13 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     setupSteps: [
       "Create an API key in your OpenAI dashboard.",
       "Paste the key below (shown only once at creation).",
-      "Run Test connection, then Save provider.",
+      "Run Test connection, then Use for chat.",
     ],
     billingNote: "OpenAI bills usage on your account. Check pricing on openai.com.",
     privacyNote:
       "Your key is stored only in OS secure storage on this device — never in the SQLite database.",
     status: "ready",
-    activeChatEngine: false,
+    activeChatEngine: true,
     visibleInNormalUi: false,
   },
   {
@@ -79,14 +81,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     requiresBaseUrl: false,
     setupSteps: [
       "Create an API key in the Anthropic Console.",
-      "Paste the key below and save your preferred model.",
-      "Assistant runtime for Claude is coming next in ContinuityOS.",
+      "Paste the key below and choose a model.",
+      "Test connection, then Use for chat.",
     ],
     billingNote: "Anthropic bills usage on your account.",
     privacyNote:
       "Keys stay in OS secure storage locally. ContinuityOS does not send keys to our servers.",
-    status: "setup_only",
-    activeChatEngine: false,
+    status: "ready",
+    activeChatEngine: true,
     visibleInNormalUi: false,
   },
   {
@@ -110,13 +112,13 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     setupSteps: [
       "Create an API key in Google AI Studio.",
       "Paste the key below and choose a model.",
-      "Assistant runtime for Gemini is coming next in ContinuityOS.",
+      "Test connection, then Use for chat.",
     ],
     billingNote: "Google may bill or rate-limit usage per your AI Studio plan.",
     privacyNote:
       "Keys are stored locally in OS secure storage, not in your continuity database.",
-    status: "setup_only",
-    activeChatEngine: false,
+    status: "ready",
+    activeChatEngine: true,
     visibleInNormalUi: false,
   },
   {
@@ -140,27 +142,27 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     setupSteps: [
       "Create an API key at openrouter.ai/keys.",
       "Confirm the API base URL (default shown below).",
-      "Paste your key and save — runtime routing is coming next.",
+      "Paste your key, test connection, then Use for chat.",
     ],
     billingNote: "OpenRouter bills per model usage on your OpenRouter account.",
     privacyNote:
-      "Your key is kept in OS secure storage. Requests will go to OpenRouter when runtime is enabled.",
-    status: "setup_only",
-    activeChatEngine: false,
+      "Your key is kept in OS secure storage. Requests go to OpenRouter when this provider is active.",
+    status: "ready",
+    activeChatEngine: true,
     visibleInNormalUi: false,
   },
   {
     id: "ollama",
-    displayName: "Local Ollama",
-    description: "Run open models locally with Ollama — no cloud API key required.",
+    displayName: "ContinuityOS Local AI (Ollama)",
+    description: "Your private on-device assistant powered by Ollama.",
     apiKeyLabel: "API key (not required)",
     apiKeyPlaceholder: "Not used for local Ollama",
     docsUrl: "https://github.com/ollama/ollama",
     apiKeyUrl: null,
-    recommendedModel: "llama3.1",
+    recommendedModel: "llama3.2:3b",
     modelOptions: [
-      { id: "llama3.1", label: "Llama 3.1 (pull with ollama pull llama3.1)" },
-      { id: "llama3.2", label: "Llama 3.2" },
+      { id: "llama3.2:3b", label: "Llama 3.2 3B (default)" },
+      { id: "llama3.1", label: "Llama 3.1" },
       { id: "mistral", label: "Mistral" },
     ],
     requiresApiKey: false,
@@ -192,16 +194,20 @@ export function getProviderDefinition(providerId: string): ProviderDefinition {
   return def;
 }
 
+function filterForCurrentMode(provider: ProviderDefinition): boolean {
+  return !isOllamaOnlyChatMode() || provider.localOnly;
+}
+
 export function listProviderDefinitions(): ProviderDefinition[] {
-  return [...PROVIDER_DEFINITIONS];
+  return PROVIDER_DEFINITIONS.filter(filterForCurrentMode);
 }
 
 export function listVisibleProviderDefinitions(): ProviderDefinition[] {
-  return PROVIDER_DEFINITIONS.filter((provider) => provider.visibleInNormalUi);
+  return PROVIDER_DEFINITIONS.filter(filterForCurrentMode).filter((provider) => provider.visibleInNormalUi);
 }
 
 export function listActiveChatProviderDefinitions(): ProviderDefinition[] {
-  return PROVIDER_DEFINITIONS.filter((provider) => provider.activeChatEngine);
+  return PROVIDER_DEFINITIONS.filter(filterForCurrentMode).filter((provider) => provider.activeChatEngine);
 }
 
 export const getActiveChatProviderDefinitions = listActiveChatProviderDefinitions;
@@ -211,10 +217,12 @@ export function providerStatusLabel(status: ProviderDefinitionStatus): string {
     case "ready":
       return "Ready for chat";
     case "setup_only":
-      return "Setup only — runtime coming next";
+      return "Setup required";
     case "coming_soon":
       return "Coming soon";
     default:
       return status;
   }
 }
+
+

@@ -28,3 +28,69 @@ models/
 *.gguf
 *.safetensors
 *.bin
+.aider*
+
+# Polaris local diagnostics / generated logs
+polaris-*-result.txt
+polaris-*-output.txt
+polaris-*-inspection.txt
+polaris-*-diagnostic.txt
+polaris-*-audit.txt
+polaris-*-feedback.txt
+polaris-*-prompt.txt
+*.bak
+*.bak-*
+*.backup
+*backup*
+
+# Local build/test outputs
+.build-*.txt
+.test-*.txt
+.e2e-*.txt
+.phase*-*.txt
+_phase*-*.txt
+test-output*.txt
+playwright-output.txt
+playwright-report.json
+test-results/
+playwright-report/
+.continuity-test/*.txt
+
+# E2E debug screenshots/html
+e2e-debug-*.html
+e2e-debug-*.png
+
+# Soak / endurance local output
+soak-runs/
+*soak*.txt
+*SOAK*REPORT*.md
+*soak*report*.md
+
+# Release/build artifacts
+release/
+build/
+dist/
+out/
+
+# Local generated diagnostics
+continuity-*-diagnostic.txt
+continuity-*-bundle.txt
+continuity-*-report.md
+startup-regression-report.txt
+blank-screen-log.txt
+daily-driver-metrics.json
+
+# Remaining local status/debug scratch files
+.scale-*.txt
+.validation-output.txt
+aider-setup-check-result.txt
+build-after-nonstream-patch.txt
+ollama-adapter-current.txt
+polaris-*-status-check.txt
+polaris-*-verify.txt
+polaris-*-runtime-log*.txt
+polaris-*-sprint-*.txt
+polaris-*-launch.txt
+polaris-*-smoke-test.txt
+polaris-*-console.txt
+polaris-*-context-review.txt
