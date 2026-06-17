@@ -22,7 +22,7 @@ export function ImportPreviewModal({
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal import-preview-modal">
+      <div className="modal import-preview-modal" data-testid="import-preview-modal">
         <h2>Import workspace</h2>
         <p className="muted small">
           Review the package below. Nothing is imported until you confirm.

@@ -2,7 +2,12 @@ import { v4 as uuid } from "uuid";
 
 import type Database from "better-sqlite3";
 
-import type { Thread, ThreadListOptions, Workspace } from "../../../src/shared/types";
+import type {
+  Thread,
+  ThreadListOptions,
+  Workspace,
+  WorkspaceProfileUpdate,
+} from "../../../src/shared/types";
 
 import { runInTransaction } from "../database/transactions";
 
@@ -32,27 +37,26 @@ const META_ACTIVE_THREAD = "active_thread_id";
 
 
 
-function mapWorkspace(row: Record<string, unknown>): Workspace {
-
+function mapWorkspace(
+  row: Record<string, unknown>,
+  continuityHealthStatus: Workspace["continuityHealthStatus"] = null,
+): Workspace {
   return {
-
     id: String(row.id),
-
     name: String(row.name),
-
+    description:
+      row.description != null && String(row.description).length > 0
+        ? String(row.description)
+        : null,
     createdAt: String(row.created_at),
-
     updatedAt: String(row.updated_at),
-
     lastOpenedAt: String(row.last_opened_at),
-
     continuitySummary:
       row.continuity_summary != null && String(row.continuity_summary).length > 0
         ? String(row.continuity_summary)
         : null,
-
+    continuityHealthStatus,
   };
-
 }
 
 
@@ -117,6 +121,130 @@ export function normalizeContinuitySummary(raw: string): string {
 
 
 
+
+function hashMemoryEventText(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0).toString(16);
+}
+
+function readStructuredMemoryEventLine(markdown: string, label: string): string | null {
+  const prefix = `- ${label}:`;
+  const line = markdown
+    .split(/\r?\n/g)
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix));
+  if (!line) return null;
+  return line.slice(prefix.length).trim() || null;
+}
+
+function extractLatestStructuredMemoryEventMarkdown(summary: string): string | null {
+  const matches = [
+    ...summary.matchAll(/(?:^|\n)## Structured Memory Event\n([\s\S]*?)(?=\n## |$)/g),
+  ];
+  const latest = matches.at(-1)?.[1]?.trim();
+  if (!latest) return null;
+  return ["## Structured Memory Event", latest].join("\n");
+}
+
+function persistStructuredMemoryEventRecord(
+  db: Database.Database,
+  workspaceId: string,
+  normalizedSummary: string,
+  createdAt: string,
+): void {
+  const markdown = extractLatestStructuredMemoryEventMarkdown(normalizedSummary);
+  if (!markdown) return;
+
+  const sourceId = readStructuredMemoryEventLine(markdown, "ID");
+  const recordId = sourceId
+    ? `structured_memory_event:${workspaceId}:${sourceId}`
+    : `structured_memory_event:${workspaceId}:${hashMemoryEventText(markdown)}`;
+
+  const payload = {
+    version: 1,
+    source: "continuity_summary_autosave",
+    markdown,
+    parsed: {
+      id: sourceId,
+      type: readStructuredMemoryEventLine(markdown, "Type"),
+      summary: readStructuredMemoryEventLine(markdown, "Summary"),
+      importance: readStructuredMemoryEventLine(markdown, "Importance"),
+      confidence: readStructuredMemoryEventLine(markdown, "Confidence"),
+      scentTags: readStructuredMemoryEventLine(markdown, "Scent tags"),
+      digitalScentTrace: readStructuredMemoryEventLine(markdown, "Retrieval trace"),
+      retrievalPhrases: readStructuredMemoryEventLine(markdown, "Retrieval phrases"),
+      nextAction: readStructuredMemoryEventLine(markdown, "Next action"),
+    },
+  };
+
+  db.prepare(
+    `INSERT OR IGNORE INTO continuity_records (id, workspace_id, record_type, payload_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(
+    recordId,
+    workspaceId,
+    "structured_memory_event_v1",
+    JSON.stringify(payload),
+    createdAt,
+  );
+}
+export function touchWorkspaceActivity(db: Database.Database, workspaceId: string): void {
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE workspaces SET last_opened_at = ?, updated_at = ? WHERE id = ?",
+  ).run(now, now, workspaceId);
+}
+
+export function updateWorkspaceProfile(
+  db: Database.Database,
+  workspaceId: string,
+  patch: WorkspaceProfileUpdate,
+): Workspace {
+  const now = new Date().toISOString();
+  return runInTransaction(db, () => {
+    const existing = db
+      .prepare("SELECT * FROM workspaces WHERE id = ?")
+      .get(workspaceId) as Record<string, unknown> | undefined;
+    if (!existing) {
+      throw new Error("Workspace not found.");
+    }
+    const name =
+      patch.name != null ? patch.name.trim() || String(existing.name) : String(existing.name);
+    const description =
+      patch.description !== undefined
+        ? patch.description == null || patch.description.trim().length === 0
+          ? null
+          : patch.description.trim().slice(0, 500)
+        : existing.description != null
+          ? String(existing.description)
+          : null;
+    db.prepare(
+      "UPDATE workspaces SET name = ?, description = ?, updated_at = ?, last_opened_at = ? WHERE id = ?",
+    ).run(name, description, now, now, workspaceId);
+    if (patch.name != null || patch.description !== undefined) {
+      appendTimelineEvent(db, {
+        workspaceId,
+        type: "workspace_profile_updated",
+        title: "Workspace profile updated",
+        description:
+          patch.name != null ? `Name set to “${name}”.` : "Description updated.",
+        source: "user",
+      });
+    }
+    recordSuccessfulPersistence(db);
+    return mapWorkspace(
+      db.prepare("SELECT * FROM workspaces WHERE id = ?").get(workspaceId) as Record<
+        string,
+        unknown
+      >,
+    );
+  });
+}
+
 export function updateContinuitySummary(
   db: Database.Database,
   workspaceId: string,
@@ -136,6 +264,8 @@ export function updateContinuitySummary(
     db.prepare(
       "UPDATE workspaces SET continuity_summary = ?, updated_at = ? WHERE id = ?",
     ).run(normalized.length > 0 ? normalized : null, now, workspaceId);
+
+    persistStructuredMemoryEventRecord(db, workspaceId, normalized, now);
 
     appendTimelineEvent(db, {
       workspaceId,

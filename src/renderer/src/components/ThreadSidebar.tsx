@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import type { Thread } from "@shared/types";
+import { THREAD_EMPTY_COPY } from "@shared/consumer-experience-copy";
 import { ThreadDeleteConfirm } from "./ThreadDeleteConfirm";
 
 type Props = {
@@ -96,10 +97,10 @@ export function ThreadSidebar({
   });
 
   return (
-    <nav className="thread-sidebar" aria-label="Threads">
+    <nav className="thread-sidebar" aria-label="Threads" data-testid="thread-sidebar">
       <div className="thread-sidebar-header">
-        <h2>Threads</h2>
-        <button type="button" onClick={onCreate} disabled={disabled}>
+        <h2>Conversations</h2>
+        <button type="button" data-testid="create-thread" onClick={onCreate} disabled={disabled}>
           New
         </button>
       </div>
@@ -130,7 +131,18 @@ export function ThreadSidebar({
 
       <ul className="thread-list">
         {visibleThreads.length === 0 && (
-          <li className="muted empty-threads">No threads in this view.</li>
+          <li className="empty-threads-state">
+            <p className="muted">
+              {showArchived || showDeleted
+                ? THREAD_EMPTY_COPY.filtered
+                : THREAD_EMPTY_COPY.none}
+            </p>
+            {!showArchived && !showDeleted && (
+              <button type="button" className="small-btn" disabled={disabled} onClick={onCreate}>
+                {THREAD_EMPTY_COPY.cta}
+              </button>
+            )}
+          </li>
         )}
         {visibleThreads.map((thread) => {
           const badge = threadBadge(thread);
@@ -151,7 +163,9 @@ export function ThreadSidebar({
                   }}
                 />
               ) : (
-                <div className="thread-row">
+                <div
+                  className={`thread-row${activeThreadId === thread.id && !isHidden ? " active-continuity" : ""}`}
+                >
                   <button
                     type="button"
                     className={`thread-item ${activeThreadId === thread.id ? "active" : ""} ${isHidden ? "thread-item-hidden" : ""}`}
@@ -173,7 +187,7 @@ export function ThreadSidebar({
                         setMenuThreadId((id) => (id === thread.id ? null : thread.id));
                       }}
                     >
-                      ⋯
+                      ...
                     </button>
                     {menuThreadId === thread.id && (
                       <div className="thread-actions-menu" role="menu">
@@ -262,7 +276,7 @@ export function ThreadSidebar({
           );
         })}
       </ul>
-      <p className="muted small thread-hint">Use ⋯ on any thread for rename, move, archive, or delete.</p>
+      <p className="muted small thread-hint">Drag chats to reorder. Use the menu for options.</p>
 
       {pendingDelete && (
         <ThreadDeleteConfirm
@@ -277,3 +291,6 @@ export function ThreadSidebar({
     </nav>
   );
 }
+
+
+

@@ -1,4 +1,4 @@
-import type { MessageRole } from "@shared/types";
+﻿import type { MessageRole } from "@shared/types";
 import type { ChatWorkflowType } from "./chat-workflows";
 import type { GuidanceState } from "./guided-routines";
 
@@ -54,3 +54,4 @@ export function shouldShowGuideBubble(input: {
     "local_ai_unavailable",
   ].includes(input.guidanceState);
 }
+

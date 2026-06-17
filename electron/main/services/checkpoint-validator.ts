@@ -130,7 +130,7 @@ export function validateImportPackageStructure(
 
   const pkg = unwrapped as unknown as Record<string, unknown>;
   const formatVersion = Number(pkg.exportFormatVersion ?? 0);
-  if (formatVersion !== 1 && formatVersion !== 2) {
+  if (formatVersion !== 1 && formatVersion !== 2 && formatVersion !== 3 && formatVersion !== 4) {
     errors.push("unsupported-export-format");
   }
   if (!pkg.workspace || typeof pkg.workspace !== "object") {

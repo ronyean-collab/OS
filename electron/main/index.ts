@@ -3,10 +3,21 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { closeDatabase, openDatabase } from "./database/connection";
+import { closeDatabase, enterRecoveryMode, openDatabase } from "./database/connection";
 import { logCrash, markSessionCleanExit } from "./services/crash-logger";
+import {
+  endCurrentSession,
+  recordAppLaunch,
+  recordRecoveryEvent,
+} from "./services/daily-driver-telemetry";
+import { stopManagedRuntime } from "./services/local-runtime-provisioner";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const e2eUserData = process.env.CONTINUITY_E2E_USER_DATA?.trim();
+if (e2eUserData) {
+  app.setPath("userData", e2eUserData);
+}
 
 /** With "type":"module", CJS preload must be .cjs; ESM builds use .mjs. */
 function resolvePreloadPath(): string {
@@ -84,7 +95,13 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerProcessCrashHandlers();
-  openDatabase();
+  recordAppLaunch();
+  if (process.env.CONTINUITY_E2E_RECOVERY === "1") {
+    recordRecoveryEvent();
+    enterRecoveryMode("E2E simulated recovery — database verification paused.");
+  } else {
+    openDatabase();
+  }
   registerIpcHandlers();
   createWindow();
 
@@ -102,6 +119,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopManagedRuntime();
+  endCurrentSession();
   markSessionCleanExit();
   closeDatabase();
 });

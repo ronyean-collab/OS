@@ -1,6 +1,6 @@
-import { ipcMain, shell } from "electron";
+import { app, ipcMain, shell } from "electron";
 import { IPC } from "../../../src/shared/ipc-channels";
-import type { AppState } from "../../../src/shared/types";
+import type { AppState, Workspace } from "../../../src/shared/types";
 import {
   getLastMigrationApplied,
   getRecoveryMessage,
@@ -23,6 +23,18 @@ import {
   saveProviderConfig,
 } from "../services/provider-service";
 import { testProviderConnection } from "../services/provider-connection-test";
+import {
+  bootstrapLocalAiOnStartup,
+  ensureDefaultContinuityAiProvider,
+} from "../services/local-ai-bootstrap";
+import { resolveDefaultAiRoute } from "../services/default-ai-runtime";
+import {
+  getConsumerStatus,
+  pauseEmbeddedLocalAiDownload,
+  prepareEmbeddedLocalAiOnFirstRun,
+  restartEmbeddedLocalAiDownload,
+  resumeEmbeddedLocalAiDownload,
+} from "../services/embedded-local-ai-manager";
 import { secureStorage } from "../secure-storage";
 import { getSessionPlaceholder, signInPlaceholder } from "../supabase/client";
 import {
@@ -36,7 +48,26 @@ import {
   setActiveThread,
   setActiveWorkspace,
   updateContinuitySummary,
+  updateWorkspaceProfile,
+  touchWorkspaceActivity,
 } from "../services/workspace-service";
+import {
+  getAssistantProfile,
+  updateAssistantProfile,
+} from "../services/assistant-profile-service";
+import { resetWorkspaceExperience } from "../services/first-time-experience-reset-service";
+import {
+  readDailyDriverMetrics,
+  recordCompressionCycle,
+  recordContinuityRebuild,
+  recordExport,
+  recordImport,
+  recordProviderSwitch,
+  recordRecoveryEvent,
+  recordSavepoint,
+  recordThreadCount,
+} from "../services/daily-driver-telemetry";
+import { scanWorkspaceHealth } from "../services/workspace-health";
 import {
   archiveThreadAndRepair,
   moveThreadDown,
@@ -55,12 +86,18 @@ import {
 import {
   applyContinuityImportFile,
   listMarkdownMemoryRecords,
+  listStructuredMemoryEventRecords,
   previewContinuityImportFile,
 } from "../services/continuity-import-file";
 import { exportMarkdownMemoryFile } from "../services/markdown-memory-service";
 import { getLocalAiStatus } from "../services/local-ai-service";
 import { getEmbeddedLocalLlmStatus } from "../services/embedded-local-llm-service";
 import { buildMemoryCompressionDraft } from "../services/memory-compression-service";
+import { getContinuityInspectorReport } from "../services/continuity-inspector";
+import {
+  collectRuntimeHealthInput,
+  measureRuntimeHealth,
+} from "../services/runtime-health-service";
 import {
   buildOrphanRepairPreview,
   executeAttachOrphansToRecoveredThread,
@@ -77,6 +114,7 @@ import {
   assertSendMessageInput,
   assertStreamId,
   assertThreadId,
+  assertContinuityInspectorInput,
 } from "./validate";
 import {
   createManualSnapshot,
@@ -132,6 +170,13 @@ import {
   recordBackupReminderShown,
 } from "../services/backup-reminder";
 
+function withWorkspaceHealth(
+  ws: Workspace,
+  status: "healthy" | "attention" | "unhealthy",
+): Workspace {
+  return { ...ws, continuityHealthStatus: status };
+}
+
 function requireDb() {
   const opened = openDatabase();
   if (!opened.ok) {
@@ -140,7 +185,90 @@ function requireDb() {
   return opened.db;
 }
 
-function buildAppState(): AppState {
+async function resolveProviderReadiness(
+  db: ReturnType<typeof requireDb>,
+  workspaceId: string | null,
+): Promise<
+  Pick<
+    AppState,
+    | "providerSetupRequired"
+    | "providerReady"
+    | "selectedProvider"
+    | "providerReadinessStatus"
+    | "defaultAiRouteStatus"
+    | "defaultAiRouteSource"
+    | "defaultAiConsumerMessage"
+    | "defaultAiCanReply"
+    | "defaultAiActionLabel"
+    | "defaultAiAdvancedMessage"
+    | "embeddedAiPhase"
+    | "embeddedAiProgressPercent"
+    | "embeddedAiBytesDownloaded"
+    | "embeddedAiBytesTotal"
+    | "embeddedAiLastProgressAt"
+    | "embeddedAiConsumerMessage"
+    | "embeddedAiRepliesReady"
+  >
+> {
+  const embedded = getConsumerStatus();
+  const embeddedFields = {
+    embeddedAiPhase: embedded.phase,
+    embeddedAiProgressPercent: embedded.progressPercent,
+    embeddedAiBytesDownloaded: embedded.bytesDownloaded,
+    embeddedAiBytesTotal: embedded.bytesTotal,
+    embeddedAiLastProgressAt: embedded.lastProgressAt,
+    embeddedAiConsumerMessage: embedded.message,
+    embeddedAiRepliesReady: embedded.aiRepliesReady,
+  };
+
+  if (!workspaceId) {
+    return {
+      providerSetupRequired: false,
+      providerReady: false,
+      selectedProvider: "ollama",
+      providerReadinessStatus: "not_configured",
+      defaultAiRouteStatus: "manual_mode",
+      defaultAiRouteSource: "manual",
+      defaultAiConsumerMessage: "Connect AI in Settings when you're ready.",
+      ...embeddedFields,
+    };
+  }
+
+  const route = await resolveDefaultAiRoute(db, workspaceId);
+  return {
+    providerSetupRequired: route.providerSetupRequired,
+    providerReady: route.canReply,
+    selectedProvider: route.selectedProvider,
+    providerReadinessStatus: route.canReply ? "ready" : route.providerReadinessStatus,
+    defaultAiRouteStatus: route.status,
+    defaultAiRouteSource: route.source,
+    defaultAiConsumerMessage: route.consumerMessage,
+    defaultAiCanReply: route.canReply,
+    defaultAiActionLabel: route.actionLabel ?? null,
+    defaultAiAdvancedMessage: route.advancedMessage ?? null,
+    ...embeddedFields,
+    embeddedAiRepliesReady: route.canReply,
+  };
+}
+
+function resolveUserDataDir(): string {
+  try {
+    return app.getPath("userData");
+  } catch {
+    return process.env.CONTINUITY_E2E_USER_DATA?.trim() || process.cwd();
+  }
+}
+
+function kickoffEmbeddedLocalAiPreparation(
+  db: ReturnType<typeof requireDb>,
+  workspaceId: string,
+): void {
+  void prepareEmbeddedLocalAiOnFirstRun(db, workspaceId, resolveUserDataDir()).catch(() => {
+    // Non-blocking — consumer status reflects failures.
+  });
+}
+
+async function buildAppState(): Promise<AppState> {
   const reliability = getReliabilityState();
   const version = getAppVersionInfo();
   const base = {
@@ -173,18 +301,41 @@ function buildAppState(): AppState {
       previousSessionCrashed: crash?.previousSessionCrashed ?? false,
       downgradeDetected: compat?.downgradeDetected ?? false,
       startupWarnings: compat?.warnings ?? [],
+      providerSetupRequired: true,
+      providerReady: false,
+      selectedProvider: null,
+      providerReadinessStatus: "not_configured",
+      runtimeHealthScore: 0,
+      recoveryConfidenceScore: 0,
       ...base,
     };
   }
   try {
     const db = requireDb();
     const workspaceId = getActiveWorkspaceId(db);
+    const threadId = getActiveThreadId(db);
+    const providerReadiness = await resolveProviderReadiness(db, workspaceId);
+    if (workspaceId) {
+      kickoffEmbeddedLocalAiPreparation(db, workspaceId);
+    }
+    let runtimeHealthScore = 0.5;
+    let recoveryConfidenceScore = 0.5;
+    if (workspaceId && threadId) {
+      const healthInput = collectRuntimeHealthInput(db, {
+        workspaceId,
+        threadId,
+        activePayloadBytes: 0,
+      });
+      const health = measureRuntimeHealth(healthInput);
+      runtimeHealthScore = health.runtimeHealthScore;
+      recoveryConfidenceScore = health.recoveryConfidenceScore;
+    }
 
     return {
       recoveryMode: false,
       recoveryMessage: null,
       activeWorkspaceId: workspaceId,
-      activeThreadId: getActiveThreadId(db),
+      activeThreadId: threadId,
       dbReady: true,
       continuityHealthy: reliability.continuityHealthy,
       lastSnapshotAt: workspaceId
@@ -197,6 +348,9 @@ function buildAppState(): AppState {
       previousSessionCrashed: crash?.previousSessionCrashed ?? false,
       downgradeDetected: compat?.downgradeDetected ?? false,
       startupWarnings: compat?.warnings ?? [],
+      runtimeHealthScore,
+      recoveryConfidenceScore,
+      ...providerReadiness,
     };
   } catch (err) {
     return {
@@ -218,6 +372,12 @@ function buildAppState(): AppState {
       previousSessionCrashed: crash?.previousSessionCrashed ?? false,
       downgradeDetected: compat?.downgradeDetected ?? false,
       startupWarnings: compat?.warnings ?? [],
+      providerSetupRequired: true,
+      providerReady: false,
+      selectedProvider: null,
+      providerReadinessStatus: "network_error",
+      runtimeHealthScore: 0,
+      recoveryConfidenceScore: 0,
     };
   }
 }
@@ -283,7 +443,7 @@ export function registerIpcHandlers(): void {
     return formatDiagnosticsBundleForCopy(bundle);
   });
 
-  ipcMain.handle(IPC.APP_SET_RECOVERY_MODE, (_e, enabled: boolean) => {
+  ipcMain.handle(IPC.APP_SET_RECOVERY_MODE, async (_e, enabled: boolean) => {
     void enabled;
     return buildAppState();
   });
@@ -295,14 +455,73 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.WORKSPACE_CREATE, (_e, name: string) => {
     const db = requireDb();
-    return createWorkspace(db, assertNonEmptyString(name, "name"));
+    const ws = createWorkspace(db, assertNonEmptyString(name, "name"));
+    ensureDefaultContinuityAiProvider(db, ws.id);
+    return ws;
   });
 
   ipcMain.handle(IPC.WORKSPACE_GET_ACTIVE, () => {
     const db = requireDb();
     const id = getActiveWorkspaceId(db);
     if (!id) return null;
-    return listWorkspaces(db).find((w) => w.id === id) ?? null;
+    const ws = listWorkspaces(db).find((w) => w.id === id);
+    if (!ws) return null;
+    const health = scanWorkspaceHealth(db, id);
+    return withWorkspaceHealth(ws, health.status);
+  });
+
+  ipcMain.handle(
+    IPC.WORKSPACE_UPDATE_PROFILE,
+    (_e, workspaceId: unknown, patch: unknown) => {
+      const db = requireDb();
+      const id = assertNonEmptyString(workspaceId, "workspaceId");
+      if (!patch || typeof patch !== "object") {
+        throw new Error("patch must be an object");
+      }
+      const p = patch as { name?: string; description?: string | null };
+      const ws = updateWorkspaceProfile(db, id, {
+        name: typeof p.name === "string" ? p.name : undefined,
+        description: p.description !== undefined ? p.description : undefined,
+      });
+      const health = scanWorkspaceHealth(db, id);
+      return withWorkspaceHealth(ws, health.status);
+    },
+  );
+
+  ipcMain.handle(IPC.DAILY_DRIVER_METRICS_GET, () => readDailyDriverMetrics());
+
+  ipcMain.handle(IPC.ASSISTANT_GET_PROFILE, () => {
+    const db = requireDb();
+    return getAssistantProfile(db);
+  });
+
+  ipcMain.handle(IPC.ASSISTANT_UPDATE_PROFILE, (_e, patch: unknown) => {
+    const db = requireDb();
+    if (!patch || typeof patch !== "object") {
+      throw new Error("patch must be an object");
+    }
+    const p = patch as {
+      assistantName?: string;
+      webEnabled?: boolean;
+      memoryEnabled?: boolean;
+      continuityEnabled?: boolean;
+    };
+    return updateAssistantProfile(db, {
+      assistantName: typeof p.assistantName === "string" ? p.assistantName : undefined,
+      webEnabled: typeof p.webEnabled === "boolean" ? p.webEnabled : undefined,
+      memoryEnabled: typeof p.memoryEnabled === "boolean" ? p.memoryEnabled : undefined,
+      continuityEnabled:
+        typeof p.continuityEnabled === "boolean" ? p.continuityEnabled : undefined,
+    });
+  });
+
+  ipcMain.handle(IPC.EXPERIENCE_RESET, (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    const id = assertNonEmptyString(workspaceId, "workspaceId");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Reset experience is only available in developer builds.");
+    }
+    return resetWorkspaceExperience(db, id);
   });
 
   ipcMain.handle(IPC.WORKSPACE_SET_ACTIVE, (_e, workspaceId: string) => {
@@ -347,6 +566,11 @@ export function registerIpcHandlers(): void {
     return listMarkdownMemoryRecords(db, assertNonEmptyString(workspaceId, "workspaceId"));
   });
 
+  ipcMain.handle(IPC.STRUCTURED_MEMORY_EVENTS_LIST, (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    return listStructuredMemoryEventRecords(db, assertNonEmptyString(workspaceId, "workspaceId"));
+  });
+
   ipcMain.handle(IPC.MANUAL_EXCHANGE_SAVE, (_e, input: unknown) => {
     const db = requireDb();
     return saveManualExchange(db, assertManualExchangeSaveInput(input));
@@ -373,6 +597,7 @@ export function registerIpcHandlers(): void {
       const pkg = buildWorkspaceExportPackage(db, id);
       const bundle = buildVerifiedBackupBundle(db, id);
       recordExportMetadata(db);
+      recordExport();
       return {
         ok: true,
         json: serializeBackupBundleExport(bundle),
@@ -440,10 +665,12 @@ export function registerIpcHandlers(): void {
         options && typeof options === "object"
           ? (options as { includeArchived?: boolean; includeDeleted?: boolean })
           : {};
-      return listThreads(db, assertNonEmptyString(workspaceId, "workspaceId"), {
+      const threads = listThreads(db, assertNonEmptyString(workspaceId, "workspaceId"), {
         includeArchived: Boolean(opts.includeArchived),
         includeDeleted: Boolean(opts.includeDeleted),
       });
+      recordThreadCount(threads.length);
+      return threads;
     },
   );
 
@@ -589,7 +816,7 @@ export function registerIpcHandlers(): void {
     IPC.SNAPSHOT_CREATE,
     (_e, workspaceId: string, label: unknown, threadId: unknown) => {
       const db = requireDb();
-      return createManualSnapshot(
+      const snap = createManualSnapshot(
         db,
         assertNonEmptyString(workspaceId, "workspaceId"),
         {
@@ -597,6 +824,8 @@ export function registerIpcHandlers(): void {
           threadId: typeof threadId === "string" ? threadId : null,
         },
       );
+      recordSavepoint();
+      return snap;
     },
   );
 
@@ -640,7 +869,11 @@ export function registerIpcHandlers(): void {
     if (typeof json !== "string") {
       return { ok: false, message: "Invalid import file." };
     }
-    return executeWorkspaceImport(db, json);
+    const result = executeWorkspaceImport(db, json);
+    if (result.ok) {
+      recordImport();
+    }
+    return result;
   });
 
   ipcMain.handle(
@@ -743,19 +976,51 @@ export function registerIpcHandlers(): void {
     return getEmbeddedLocalLlmStatus();
   });
 
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_CONSUMER_STATUS, () => {
+    return getConsumerStatus();
+  });
+
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_PREPARE, async (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    const wsId = assertNonEmptyString(workspaceId, "workspaceId");
+    return prepareEmbeddedLocalAiOnFirstRun(db, wsId, resolveUserDataDir());
+  });
+
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_PAUSE, () => {
+    return pauseEmbeddedLocalAiDownload(resolveUserDataDir());
+  });
+
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_RESUME, async (_e, workspaceId: unknown) => {
+    const status = resumeEmbeddedLocalAiDownload(resolveUserDataDir());
+    const wsId = typeof workspaceId === "string" ? workspaceId.trim() : "";
+    if (wsId) {
+      const db = requireDb();
+      void prepareEmbeddedLocalAiOnFirstRun(db, wsId, resolveUserDataDir()).catch(() => undefined);
+    }
+    return status;
+  });
+
+  ipcMain.handle(IPC.EMBEDDED_LOCAL_AI_RESTART, async (_e, workspaceId: unknown) => {
+    const db = requireDb();
+    const wsId = assertNonEmptyString(workspaceId, "workspaceId");
+    return restartEmbeddedLocalAiDownload(db, wsId, resolveUserDataDir());
+  });
+
   ipcMain.handle(IPC.MEMORY_COMPRESSION_PREVIEW, (_e, input: unknown) => {
     const db = requireDb();
     if (!input || typeof input !== "object") {
       throw new Error("Invalid memory compression input.");
     }
     const payload = input as { workspaceId?: unknown; threadId?: unknown };
-    return buildMemoryCompressionDraft(db, {
+    const draft = buildMemoryCompressionDraft(db, {
       workspaceId: assertNonEmptyString(payload.workspaceId, "workspaceId"),
       threadId:
         typeof payload.threadId === "string" && payload.threadId.trim()
           ? assertThreadId(payload.threadId)
           : null,
     });
+    recordCompressionCycle();
+    return draft;
   });
 
   ipcMain.handle(
@@ -772,14 +1037,21 @@ export function registerIpcHandlers(): void {
       if (typeof apiKey !== "string") {
         throw new Error("Invalid apiKey.");
       }
-      return saveProviderConfig(
+      const wsId = assertNonEmptyString(workspaceId, "workspaceId");
+      const prev = getProviderConfig(db, wsId);
+      const saved = saveProviderConfig(
         db,
-        assertNonEmptyString(workspaceId, "workspaceId"),
+        wsId,
         assertNonEmptyString(provider, "provider"),
         assertNonEmptyString(model, "model"),
         apiKey,
         typeof baseUrl === "string" ? baseUrl : null,
       );
+      if (prev?.provider !== saved.provider) {
+        recordProviderSwitch();
+      }
+      touchWorkspaceActivity(db, wsId);
+      return saved;
     },
   );
 
@@ -886,5 +1158,15 @@ export function registerIpcHandlers(): void {
         ? workspaceId.trim()
         : getActiveWorkspaceId(db);
     return executeQuarantineOrphanedMessages(db, ws);
+  });
+
+  ipcMain.handle(IPC.CONTINUITY_INSPECTOR_GET, (_e, input: unknown) => {
+    const enabled =
+      process.env.CONTINUITY_DEBUG_INSPECTOR === "1" || process.env.NODE_ENV !== "production";
+    if (!enabled) {
+      throw new Error("Continuity inspector is disabled.");
+    }
+    const db = requireDb();
+    return getContinuityInspectorReport(db, assertContinuityInspectorInput(input));
   });
 }

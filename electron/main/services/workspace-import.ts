@@ -25,6 +25,11 @@ import type {
 } from "../../../src/shared/types";
 import { getVersionStamp } from "../../../src/shared/app-version";
 import { setMeta } from "./workspace-service";
+import {
+  importContinuityIntelligenceExport,
+  rebuildIntelligenceFromHistory,
+} from "./continuity-intelligence-service";
+import { importAiLifeExport, rebuildAiLifeFromHistory } from "./ai-life-service";
 
 const IMPORT_DEV_LOGGING =
   process.env.CONTINUITY_IMPORT_DEBUG === "1" ||
@@ -221,6 +226,8 @@ export function executeWorkspaceImport(
 
   if (
     pkg.exportFormatVersion !== EXPORT_FORMAT_VERSION &&
+    pkg.exportFormatVersion !== 3 &&
+    pkg.exportFormatVersion !== 2 &&
     pkg.exportFormatVersion !== 1
   ) {
     const msg = "Unsupported export format version.";
@@ -410,6 +417,18 @@ export function executeWorkspaceImport(
       message: "Workspace import completed",
       details: { originalWorkspaceId: pkg.workspace.id },
     });
+
+    if (pkg.continuityIntelligence) {
+      importContinuityIntelligenceExport(db, workspace.id, pkg.continuityIntelligence);
+    } else {
+      rebuildIntelligenceFromHistory(db, workspace.id);
+    }
+
+    if (pkg.aiLife) {
+      importAiLifeExport(db, workspace.id, pkg.aiLife);
+    } else {
+      rebuildAiLifeFromHistory(db, workspace.id);
+    }
 
     return {
       ok: true,

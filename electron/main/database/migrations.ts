@@ -7,6 +7,16 @@ import {
   MIGRATION_004,
   MIGRATION_005,
   MIGRATION_006,
+  MIGRATION_007,
+  MIGRATION_008,
+  MIGRATION_009,
+  MIGRATION_010,
+  MIGRATION_011,
+  MIGRATION_012,
+  MIGRATION_013,
+  MIGRATION_014,
+  MIGRATION_015,
+  MIGRATION_016,
   SCHEMA_VERSION,
 } from "./schema";
 import { createRecoverySnapshot } from "./recovery-snapshot";
@@ -25,6 +35,16 @@ export const MIGRATIONS: Migration[] = [
   { version: 4, sql: MIGRATION_004 },
   { version: 5, sql: MIGRATION_005 },
   { version: 6, sql: MIGRATION_006 },
+  { version: 7, sql: MIGRATION_007 },
+  { version: 8, sql: MIGRATION_008 },
+  { version: 9, sql: MIGRATION_009 },
+  { version: 10, sql: MIGRATION_010 },
+  { version: 11, sql: MIGRATION_011 },
+  { version: 12, sql: MIGRATION_012 },
+  { version: 13, sql: MIGRATION_013 },
+  { version: 14, sql: MIGRATION_014 },
+  { version: 15, sql: MIGRATION_015 },
+  { version: 16, sql: MIGRATION_016 },
 ];
 
 export function getAppliedVersion(db: Database.Database): number {

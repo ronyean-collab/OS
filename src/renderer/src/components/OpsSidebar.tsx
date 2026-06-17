@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
-import { ProviderSetupPanel, type ProviderSetupPanelProps } from "./ProviderSetupPanel";
-import { ReliabilityIndicators } from "./ReliabilityIndicators";
-import { WorkspaceHealthPanel } from "./WorkspaceHealthPanel";
-import { ContinuitySummaryPanel } from "./ContinuitySummaryPanel";
-import { TimelinePanel } from "./TimelinePanel";
-import { SnapshotPanel } from "./SnapshotPanel";
-import { ContinuityImportPanel } from "./ContinuityImportPanel";
+import { BackupsPanel } from "./BackupsPanel";
+import { SettingsPanel } from "./SettingsPanel";
 import { ProjectMemoryDashboard } from "./ProjectMemoryDashboard";
+import { ProjectContinueSummary } from "./ProjectContinueSummary";
+import type { ResumeCard } from "../project-memory";
+import type { ProviderSetupPanelProps } from "./ProviderSetupPanel";
+import {
+  WORKSPACE_OPS_TABS,
+  normalizeWorkspaceOpsTab,
+  type WorkspaceOpsTabId,
+} from "@shared/workspace-ops";
 import type {
   AppState,
   AutosaveStatus,
@@ -17,9 +20,15 @@ import type {
   SnapshotRecord,
   TimelineGroup,
   WorkspaceHealthReport,
+  LocalAiStatus,
+  EmbeddedAiConsumerStatus,
+  ProviderConfig,
+  Workspace,
+  AssistantProfile,
+  AssistantProfileUpdate,
 } from "@shared/types";
 
-export type OpsTabId = "overview" | "activity" | "restore-points" | "local-ai";
+export type OpsTabId = WorkspaceOpsTabId | "overview" | "activity" | "restore-points" | "local-ai";
 export type OpsFocusTarget =
   | "import-memory"
   | "review-memory"
@@ -31,22 +40,29 @@ type Props = {
   activeTab: OpsTabId;
   onTabChange: (tab: OpsTabId) => void;
   onClose: () => void;
+  onBackToChat?: () => void;
+  onConnectAi?: () => void;
   appState: AppState | null;
   autosaveStatus: AutosaveStatus | null;
   workspaceHealth: WorkspaceHealthReport | null;
   healthLoading: boolean;
   timelineGroups: TimelineGroup[];
   snapshots: SnapshotRecord[];
+  workspace: Workspace | null;
   workspaceId: string | null;
   threadId: string | null;
   recoveryMode: boolean;
   exporting: boolean;
   providerPanel: ProviderSetupPanelProps | null;
+  providerConfig: ProviderConfig | null;
+  localAiStatus: LocalAiStatus | null;
+  embeddedAiConsumerStatus: EmbeddedAiConsumerStatus | null;
   onImport: () => void;
   onImportEncrypted: () => void;
   onExport: () => void;
   onEncryptedExport: () => void;
   onOpenDiagnostics: () => void;
+  onOpenRecoveryDetails?: () => void;
   onCreateSnapshot: (label: string) => void;
   onRestorePreview: (snapshotId: string, workspaceId: string) => Promise<RestorePreview>;
   onRestore: (snapshotId: string, workspaceId: string) => Promise<RestoreExecutionResult>;
@@ -56,24 +72,29 @@ type Props = {
   onContinuityImported: (result: ContinuityImportApplyResult) => Promise<void>;
   focusTarget: OpsFocusTarget | null;
   focusTick: number;
-  // Consumer memory props
   memoryDraft?: MemoryCompressionDraft | null;
   messagesSinceLastUpdate?: number;
+  resumeCardData?: ResumeCard;
+  onContinueProject?: () => void;
   onCreateMemoryUpdate?: () => void;
   onReviewMemory?: () => void;
+  onSaveWorkspaceProfile: (patch: {
+    name?: string;
+    description?: string | null;
+  }) => Promise<void>;
+  assistantProfile: AssistantProfile | null;
+  onSaveAssistantProfile: (patch: AssistantProfileUpdate) => Promise<void>;
+  onSaveProvider: ProviderSetupPanelProps["onSave"];
+  onTestProvider: ProviderSetupPanelProps["onTest"];
+  onOpenProviderUrl: (url: string) => void;
 };
-
-const TABS: { id: OpsTabId; label: string }[] = [
-  { id: "overview", label: "Memory & Backup" },
-  { id: "activity", label: "Activity History" },
-  { id: "restore-points", label: "Restore Points" },
-  { id: "local-ai", label: "Local AI Setup" },
-];
 
 export function OpsSidebar({
   activeTab,
   onTabChange,
   onClose,
+  onBackToChat,
+  onConnectAi,
   appState,
   autosaveStatus,
   workspaceHealth,
@@ -85,11 +106,15 @@ export function OpsSidebar({
   recoveryMode,
   exporting,
   providerPanel,
+  providerConfig,
+  localAiStatus,
+  embeddedAiConsumerStatus,
   onImport,
   onImportEncrypted,
   onExport,
   onEncryptedExport,
   onOpenDiagnostics,
+  onOpenRecoveryDetails,
   onCreateSnapshot,
   onRestorePreview,
   onRestore,
@@ -101,14 +126,32 @@ export function OpsSidebar({
   focusTick,
   memoryDraft = null,
   messagesSinceLastUpdate = 0,
+  resumeCardData,
+  onContinueProject,
   onCreateMemoryUpdate,
   onReviewMemory,
+  workspace,
+  onSaveWorkspaceProfile,
+  assistantProfile,
+  onSaveAssistantProfile,
+  onSaveProvider,
+  onTestProvider,
+  onOpenProviderUrl,
 }: Props) {
+  const tab = normalizeWorkspaceOpsTab(activeTab);
   let panel: ReactNode = null;
 
-  if (activeTab === "overview") {
+  if (tab === "backups") {
     panel = (
       <>
+        {resumeCardData?.show && (
+          <ProjectContinueSummary
+            data={resumeCardData}
+            onContinueChatting={onContinueProject ?? onClose}
+            onReviewMemory={onReviewMemory ?? (() => {})}
+            onCreateMemoryUpdate={onCreateMemoryUpdate ?? (() => {})}
+          />
+        )}
         <ProjectMemoryDashboard
           draft={memoryDraft}
           messagesSinceLastUpdate={messagesSinceLastUpdate}
@@ -116,105 +159,92 @@ export function OpsSidebar({
           onCreateMemoryUpdate={onCreateMemoryUpdate ?? (() => {})}
           onReviewMemory={onReviewMemory ?? (() => {})}
           onExportBackup={onExport}
-          onOpenAdvanced={() => {}}
+          onOpenAdvanced={() => onTabChange("settings")}
         />
-        <ContinuityImportPanel
+        <BackupsPanel
           workspaceId={workspaceId}
           threadId={threadId}
-          disabled={recoveryMode}
-          onImported={onContinuityImported}
-          focusTarget={focusTarget}
+          snapshots={snapshots}
+          recoveryMode={recoveryMode}
+          exporting={exporting}
+          hasBackups={snapshots.length > 0 || Boolean(autosaveStatus?.lastAutosaveAt)}
+          onExport={onExport}
+          onEncryptedExport={onEncryptedExport}
+          onImport={onImport}
+          onImportEncrypted={onImportEncrypted}
+          onCreateSnapshot={onCreateSnapshot}
+          onRestorePreview={onRestorePreview}
+          onRestore={onRestore}
+          onRestored={onRestored}
+          onContinuityImported={onContinuityImported}
+          focusTarget={focusTarget === "import-memory" ? "import-memory" : null}
           focusTick={focusTick}
-        />
-        <ContinuitySummaryPanel
-          workspaceId={workspaceId}
-          summary={continuitySummary}
-          disabled={recoveryMode}
-          onSave={onSaveContinuitySummary}
-        />
-        <ReliabilityIndicators appState={appState} autosave={autosaveStatus} />
-        <WorkspaceHealthPanel
-          health={workspaceHealth}
-          autosave={autosaveStatus}
-          loading={healthLoading}
         />
       </>
     );
-  } else if (activeTab === "activity") {
-    panel = <TimelinePanel groups={timelineGroups} />;
-  } else if (activeTab === "restore-points") {
+  } else {
     panel = (
-      <SnapshotPanel
-        snapshots={snapshots}
+      <SettingsPanel
+        workspace={
+          workspace && workspaceHealth
+            ? { ...workspace, continuityHealthStatus: workspaceHealth.status }
+            : workspace
+        }
         workspaceId={workspaceId}
-        disabled={recoveryMode}
-        onCreate={onCreateSnapshot}
-        onRestorePreview={onRestorePreview}
-        onRestore={onRestore}
-        onRestored={onRestored}
-      />
-    );
-  } else if (activeTab === "local-ai" && providerPanel) {
-    panel = (
-      <ProviderSetupPanel
-        key={providerPanel.initialProviderId ?? providerPanel.initial?.provider ?? "ollama"}
-        {...providerPanel}
+        assistantProfile={assistantProfile}
+        appState={appState}
+        autosaveStatus={autosaveStatus}
+        workspaceHealth={workspaceHealth}
+        healthLoading={healthLoading}
+        timelineGroups={timelineGroups}
+        providerConfig={providerConfig}
+        localAiStatus={localAiStatus}
+        embeddedAiConsumerStatus={embeddedAiConsumerStatus}
+        providerPanel={providerPanel}
         focusLocalAiSignal={focusTarget === "local-ai" ? focusTick : 0}
+        onBackToChat={onBackToChat ?? onClose}
+        onConnectAi={onConnectAi ?? onClose}
+        onSaveProvider={onSaveProvider}
+        onTestProvider={onTestProvider}
+        onOpenProviderUrl={onOpenProviderUrl}
+        onSaveWorkspaceProfile={onSaveWorkspaceProfile}
+        onSaveAssistantProfile={onSaveAssistantProfile}
+        onOpenDiagnostics={onOpenDiagnostics}
+        onOpenRecoveryDetails={onOpenRecoveryDetails}
       />
     );
   }
 
   return (
-    <aside className="ops-sidebar">
+    <aside className="ops-sidebar" aria-label="Tools" data-testid="ops-sidebar">
       <div className="ops-sidebar-header">
         <div>
-          <h2>Project Tools</h2>
-          <p className="muted small">
-            Memory updates, backups, restore points, and Local AI setup. Advanced tools live here
-            so your main chat stays clean.
+          <h2>Tools</h2>
+          <p className="muted small workspace-ops-nav-hint">
+            Chat stays front and center. Backups and settings live here.
           </p>
+          <nav className="workspace-ops-structure muted small" aria-label="Workspace sections">
+            <span>Conversations</span>
+            <span aria-hidden> · </span>
+            <span className={tab === "backups" ? "active" : ""}>Backups</span>
+            <span aria-hidden> · </span>
+            <span className={tab === "settings" ? "active" : ""}>Settings</span>
+          </nav>
         </div>
         <button type="button" className="secondary small-btn" onClick={onClose}>
           Close
         </button>
       </div>
-      <div className="ops-quick-actions">
-        <button type="button" className="secondary small-btn" disabled={!workspaceId || exporting} onClick={onExport}>
-          {exporting ? "Exporting…" : "Export Backup"}
-        </button>
-        <button
-          type="button"
-          className="secondary small-btn"
-          disabled={!workspaceId || recoveryMode || exporting}
-          onClick={onEncryptedExport}
-        >
-          Encrypted Backup
-        </button>
-        <button type="button" className="secondary small-btn" disabled={!workspaceId} onClick={onImport}>
-          Restore from Backup
-        </button>
-        <button
-          type="button"
-          className="secondary small-btn"
-          disabled={!workspaceId || recoveryMode}
-          onClick={onImportEncrypted}
-        >
-          Restore from Encrypted Backup
-        </button>
-        <button type="button" className="secondary small-btn" onClick={onOpenDiagnostics}>
-          Troubleshooting
-        </button>
-      </div>
       <nav className="ops-tabs" aria-label="Workspace panels">
-        {TABS.map((tab) => (
+        {WORKSPACE_OPS_TABS.map((item) => (
           <button
-            key={tab.id}
+            key={item.id}
             type="button"
-            className={activeTab === tab.id ? "ops-tab active" : "ops-tab"}
-            aria-current={activeTab === tab.id ? "page" : undefined}
-            onClick={() => onTabChange(tab.id)}
+            className={tab === item.id ? "ops-tab active" : "ops-tab"}
+            aria-current={tab === item.id ? "page" : undefined}
+            onClick={() => onTabChange(item.id)}
           >
-            {tab.label}
+            {item.label}
           </button>
         ))}
       </nav>

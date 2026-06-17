@@ -23,6 +23,16 @@ export const SCHEMA_COMPATIBILITY_REGISTRY: SchemaCompatibilityEntry[] = [
   { schemaVersion: 4, minAppVersion: "0.1.0", notes: "Performance + replay hash" },
   { schemaVersion: 5, minAppVersion: "0.1.0", notes: "Thread management + backup bundle" },
   { schemaVersion: 6, minAppVersion: "0.1.0", notes: "Workspace continuity summary" },
+  { schemaVersion: 7, minAppVersion: "0.1.0", notes: "Memory state autosave foundation tables" },
+  { schemaVersion: 8, minAppVersion: "0.1.0", notes: "Continuity intelligence relevance/compression metadata" },
+  { schemaVersion: 9, minAppVersion: "0.1.0", notes: "Persistent continuity evolution and advanced compression metadata" },
+  { schemaVersion: 10, minAppVersion: "0.1.0", notes: "Drift control snapshots and optional embedding cache tables" },
+  { schemaVersion: 11, minAppVersion: "0.1.0", notes: "Runtime calibration snapshots and maintenance queue tables" },
+  { schemaVersion: 12, minAppVersion: "0.1.0", notes: "Runtime health snapshots for maturity monitoring" },
+  { schemaVersion: 13, minAppVersion: "0.1.0", notes: "Workspace description for daily-driver profile" },
+  { schemaVersion: 14, minAppVersion: "0.1.0", notes: "Assistant profile and identity layer" },
+  { schemaVersion: 15, minAppVersion: "0.1.0", notes: "Continuity intelligence engine tables and scoring columns" },
+  { schemaVersion: 16, minAppVersion: "0.1.0", notes: "AI Life engine operational continuity tables" },
 ];
 
 export type StartupCompatibilityReport = {

@@ -6,6 +6,8 @@ export type ProviderMessage = {
 export type ProviderCompletionRequest = {
   model: string;
   messages: ProviderMessage[];
+  /** Optional base URL for local or compatible endpoints. */
+  baseUrl?: string | null;
 };
 
 export type ProviderCompletionResult = {
@@ -22,7 +24,7 @@ export type StreamLifecycleHandlers = {
   onError: (error: Error) => void;
 };
 
-/** Provider adapter contract — OpenAI and others implement this. */
+/** Provider adapter contract — local-compatible runtimes implement this. */
 export interface ProviderAdapter {
   readonly id: string;
   isConfigured(apiKey: string | null): boolean;

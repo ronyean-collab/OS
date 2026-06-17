@@ -1,13 +1,16 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC } from "../../src/shared/ipc-channels";
 import type {
   AppState,
   AppVersionInfo,
+  AssistantProfile,
+  AssistantProfileUpdate,
   AutosaveStatus,
   DiagnosticsReport,
   ContinuityImportApplyResult,
   ContinuityImportPreview,
   EmbeddedLocalLlmStatus,
+  EmbeddedAiConsumerStatus,
   MarkdownMemoryExportResult,
   MarkdownMemoryFileType,
   MarkdownMemoryRecordSummary,
@@ -46,6 +49,7 @@ import type {
   ProviderTestResult,
   LocalAiStatus,
   SecureStorageDiagnostics,
+  ContinuityInspectorReport,
 } from "../../src/shared/types";
 
 type StreamHandlers = {
@@ -127,6 +131,21 @@ const api = {
   ): Promise<Workspace> =>
     ipcRenderer.invoke(IPC.WORKSPACE_UPDATE_CONTINUITY_SUMMARY, workspaceId, summary),
 
+  updateWorkspaceProfile: (
+    workspaceId: string,
+    patch: { name?: string; description?: string | null },
+  ): Promise<Workspace> =>
+    ipcRenderer.invoke(IPC.WORKSPACE_UPDATE_PROFILE, workspaceId, patch),
+
+  getDailyDriverMetrics: (): Promise<import("@shared/daily-driver-metrics").DailyDriverMetricsFile> =>
+    ipcRenderer.invoke(IPC.DAILY_DRIVER_METRICS_GET),
+
+  getAssistantProfile: (): Promise<AssistantProfile> =>
+    ipcRenderer.invoke(IPC.ASSISTANT_GET_PROFILE),
+
+  updateAssistantProfile: (patch: AssistantProfileUpdate): Promise<AssistantProfile> =>
+    ipcRenderer.invoke(IPC.ASSISTANT_UPDATE_PROFILE, patch),
+
   buildContextPack: (input: {
     workspaceId: string;
     threadId: string;
@@ -155,6 +174,14 @@ const api = {
   listMarkdownMemoryRecords: (workspaceId: string): Promise<MarkdownMemoryRecordSummary[]> =>
     ipcRenderer.invoke(IPC.MARKDOWN_MEMORY_LIST, workspaceId),
 
+  listStructuredMemoryEventRecords: (workspaceId: string): Promise<Array<{
+    id: string;
+    workspaceId: string;
+    createdAt: string;
+    markdown: string;
+    parsed: Record<string, unknown>;
+  }>> =>
+    ipcRenderer.invoke(IPC.STRUCTURED_MEMORY_EVENTS_LIST, workspaceId),
   saveManualExchange: (input: {
     workspaceId: string;
     threadId: string;
@@ -242,9 +269,17 @@ const api = {
   getAutosaveStatus: (): Promise<AutosaveStatus> =>
     ipcRenderer.invoke(IPC.AUTOSAVE_STATUS),
 
+  getContinuityInspector: (input: {
+    workspaceId: string;
+    threadId: string;
+    query?: string;
+  }): Promise<ContinuityInspectorReport> =>
+    ipcRenderer.invoke(IPC.CONTINUITY_INSPECTOR_GET, input),
+
   startMessageStream: (input: {
     threadId: string;
     content: string;
+    visibleContent?: string;
     ollama?: { model: string; baseUrl: string };
   }): Promise<StreamStartResult> =>
     ipcRenderer.invoke(IPC.MESSAGE_STREAM_START, input),
@@ -370,6 +405,21 @@ const api = {
   getEmbeddedLocalAiStatus: (): Promise<EmbeddedLocalLlmStatus> =>
     ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_STATUS),
 
+  getEmbeddedAiConsumerStatus: (): Promise<EmbeddedAiConsumerStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_CONSUMER_STATUS),
+
+  prepareEmbeddedLocalAi: (workspaceId: string): Promise<EmbeddedAiConsumerStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_PREPARE, workspaceId),
+
+  pauseEmbeddedLocalAi: (): Promise<EmbeddedAiConsumerStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_PAUSE),
+
+  resumeEmbeddedLocalAi: (workspaceId: string): Promise<EmbeddedAiConsumerStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_RESUME, workspaceId),
+
+  restartEmbeddedLocalAi: (workspaceId: string): Promise<EmbeddedAiConsumerStatus> =>
+    ipcRenderer.invoke(IPC.EMBEDDED_LOCAL_AI_RESTART, workspaceId),
+
   previewMemoryCompression: (input: {
     workspaceId: string;
     threadId?: string | null;
@@ -395,6 +445,21 @@ const api = {
 
   repairOrphanMessagesQuarantine: (workspaceId?: string) =>
     ipcRenderer.invoke(IPC.ORPHAN_REPAIR_QUARANTINE, workspaceId ?? ""),
+
+  resetExperience: (workspaceId: string) =>
+    ipcRenderer.invoke(IPC.EXPERIENCE_RESET, workspaceId),
+
+  // Test-only: check if E2E environment should skip preparation
+  isE2eReadyAssistant: (): boolean => {
+    // Check for CONTINUITY_E2E_READY_ASSISTANT env var (only available in E2E tests)
+    // This is a synchronous check; the env var is set via electron.launch args
+    return process.env.CONTINUITY_E2E_READY_ASSISTANT === "1";
+  },
+
+  // Test-only: check if E2E environment should skip onboarding to reveal the preparation flow.
+  isE2eSkipOnboarding: (): boolean => {
+    return process.env.CONTINUITY_E2E_SKIP_ONBOARDING === "1";
+  },
 };
 
 export type ContinuityDesktopApi = typeof api;

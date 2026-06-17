@@ -15,8 +15,13 @@ import {
 } from "./export-manifest";
 import type { Message, Thread, TimelineEvent, Workspace } from "../../../src/shared/types";
 import { mapThreadRow } from "./thread-management-service";
+import {
+  buildContinuityIntelligenceExport,
+  type ContinuityIntelligenceExport,
+} from "./continuity-intelligence-service";
+import { buildAiLifeExport, type AiLifeExport } from "./ai-life-service";
 
-export const EXPORT_FORMAT_VERSION = 2;
+export const EXPORT_FORMAT_VERSION = 4;
 
 export type WorkspaceExportPackage = {
   exportFormatVersion: number;
@@ -32,6 +37,8 @@ export type WorkspaceExportPackage = {
   timelineEvents: TimelineEvent[];
   snapshots: SnapshotRecord[];
   verification: ExportVerificationSummary;
+  continuityIntelligence?: ContinuityIntelligenceExport;
+  aiLife?: AiLifeExport;
 };
 
 export type ExportValidationResult = {
@@ -43,6 +50,10 @@ function mapWorkspace(row: Record<string, unknown>): Workspace {
   return {
     id: String(row.id),
     name: String(row.name),
+    description:
+      row.description != null && String(row.description).length > 0
+        ? String(row.description)
+        : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     lastOpenedAt: String(row.last_opened_at),
@@ -50,6 +61,7 @@ function mapWorkspace(row: Record<string, unknown>): Workspace {
       row.continuity_summary != null && String(row.continuity_summary).length > 0
         ? String(row.continuity_summary)
         : null,
+    continuityHealthStatus: null,
   };
 }
 
@@ -124,6 +136,8 @@ export function assembleWorkspaceExportPackage(
   );
 
   const version = getAppVersionInfo();
+  const continuityIntelligence = buildContinuityIntelligenceExport(db, workspaceId);
+  const aiLife = buildAiLifeExport(db, workspaceId);
   return {
     exportFormatVersion: EXPORT_FORMAT_VERSION,
     schemaVersion: version.schemaVersion,
@@ -137,6 +151,8 @@ export function assembleWorkspaceExportPackage(
     messages,
     timelineEvents,
     snapshots,
+    continuityIntelligence,
+    aiLife,
   };
 }
 

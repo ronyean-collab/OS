@@ -9,13 +9,13 @@ export type ManualFallbackState = {
 
 const THREAD_OR_WORKSPACE_ERROR_RE = /thread|workspace/i;
 const NO_PROVIDER_ERROR_RE =
-  /select a local ollama model|ollama is required|in-app chat uses ollama only|not fully configured/i;
+  /no chat provider|select a local ollama model|ollama is required|in-app chat uses ollama only|not fully configured|open providers/i;
 
 export function getManualFallbackMessage(kind: ManualFallbackKind): string {
   if (kind === "provider-unavailable") {
-    return "Message saved locally. Ollama is unavailable right now, so review memory or open Ollama Setup before sending another request.";
+    return "Message saved locally. ContinuityOS AI is unavailable right now — try again shortly or check Settings.";
   }
-  return "Message saved locally. Ollama is required for in-app AI replies, so ContinuityOS will guide you through Ollama Setup while your local memory and backups remain available.";
+  return "Message saved locally. ContinuityOS AI is still starting — you can continue setup later in Settings.";
 }
 
 export function buildManualFallbackState(input: {

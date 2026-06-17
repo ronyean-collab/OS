@@ -563,6 +563,61 @@ export function getLatestAppliedContinuityImport(
   }
 }
 
+
+export function listStructuredMemoryEventRecords(
+  db: Database.Database,
+  workspaceId: string,
+  limit = 20,
+): Array<{
+  id: string;
+  workspaceId: string;
+  createdAt: string;
+  markdown: string;
+  parsed: Record<string, unknown>;
+}> {
+  const rows = db
+    .prepare(
+      `SELECT id, workspace_id, payload_json, created_at
+       FROM continuity_records
+       WHERE workspace_id = ? AND record_type = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`,
+    )
+    .all(workspaceId, "structured_memory_event_v1", limit) as Array<{
+      id: string;
+      workspace_id: string;
+      payload_json: string;
+      created_at: string;
+    }>;
+
+  return rows.flatMap((row) => {
+    try {
+      const payload = JSON.parse(row.payload_json) as {
+        markdown?: unknown;
+        parsed?: unknown;
+      };
+
+      const markdown = typeof payload.markdown === "string" ? payload.markdown : "";
+      if (!markdown.trim()) return [];
+
+      return [
+        {
+          id: row.id,
+          workspaceId: row.workspace_id,
+          createdAt: row.created_at,
+          markdown,
+          parsed:
+            payload.parsed && typeof payload.parsed === "object"
+              ? (payload.parsed as Record<string, unknown>)
+              : {},
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
+}
+
 export function listMarkdownMemoryRecords(
   db: Database.Database,
   workspaceId: string,

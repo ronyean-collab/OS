@@ -55,14 +55,14 @@ export function getNextStepActions(state: GuidanceState): GuidanceAction[] {
   switch (state) {
     case "memory_imported":
       return [
-        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "set_up_local_ai", label: "Connect AI", tone: "primary" },
         { id: "review_project_memory", label: "Review Imported Memory" },
         { id: "backup_export", label: "Export Backup" },
         { id: "continue_any_ai", label: "Advanced AI Handoff" },
       ];
     case "context_pack_ready":
       return [
-        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "set_up_local_ai", label: "Connect AI", tone: "primary" },
         { id: "review_project_memory", label: "Review Memory" },
         { id: "backup_export", label: "Backup / Export" },
       ];
@@ -86,24 +86,22 @@ export function getNextStepActions(state: GuidanceState): GuidanceAction[] {
       ];
     case "local_ai_available":
       return [
-        { id: "set_up_local_ai", label: "Ollama Setup" },
+        { id: "set_up_local_ai", label: "AI Settings" },
         { id: "review_project_memory", label: "Review Project Memory" },
         { id: "backup_export", label: "Backup / Export" },
         { id: "continue_chatting", label: "Continue Chatting", tone: "primary" },
       ];
     case "local_ai_unavailable":
       return [
-        { id: "set_up_local_ai", label: "Set Up Ollama", tone: "primary" },
+        { id: "set_up_local_ai", label: "Connect AI", tone: "primary" },
         { id: "review_project_memory", label: "Review Memory" },
         { id: "backup_export", label: "Backup / Export" },
       ];
     case "welcome":
     default:
       return [
-        { id: "continue_chatting", label: "Continue Chatting", tone: "primary" },
-        { id: "set_up_local_ai", label: "Set Up Ollama" },
-        { id: "import_memory", label: "Import Memory" },
-        { id: "review_project_memory", label: "Review Memory" },
+        { id: "continue_chatting", label: "Start typing", tone: "primary" },
+        { id: "set_up_local_ai", label: "Connect AI" },
       ];
   }
 }
@@ -111,16 +109,16 @@ export function getNextStepActions(state: GuidanceState): GuidanceAction[] {
 export function getWorkspaceGuidance(context: GuidanceContext = {}): GuidanceCard {
   const localAiNote =
     context.localAiDetected === true
-      ? " Ollama is available on this machine if you want to keep replies local."
+      ? " You can connect a local AI from Workspace if you want replies here."
       : context.localAiDetected === false
-        ? " If Ollama is not ready yet, ContinuityOS can still save memory, backups, and project state locally."
+        ? " You can still chat — connect an AI from Workspace whenever you're ready."
         : "";
 
   return {
     state: "welcome",
-    title: "ContinuityOS Guide",
-    body: `I can help with Ollama setup, memory import, backups, advanced handoffs, and project memory review.${localAiNote}`,
-    footer: "Guide messages stay secondary unless you ask for help or need a workflow.",
+    title: "Need a hand?",
+    body: `Just type in the box below to get started.${localAiNote}`,
+    footer: null,
     actions: getNextStepActions("welcome"),
   };
 }
@@ -133,7 +131,7 @@ export function getPostImportGuidance(context: GuidanceContext = {}): GuidanceCa
   return {
     state: "memory_imported",
     title: "Memory imported.",
-    body: `${sourceNote} Start Ollama if you want direct replies here, or export an advanced AI handoff only if you need to continue outside ContinuityOS.`,
+    body: `${sourceNote} ContinuityOS AI will answer here once preparation finishes, or export an advanced AI handoff only if you need to continue outside ContinuityOS.`,
     footer: null,
     actions: getNextStepActions("memory_imported"),
   };
@@ -142,13 +140,13 @@ export function getPostImportGuidance(context: GuidanceContext = {}): GuidanceCa
 export function getNoProviderGuidance(context: GuidanceContext = {}): GuidanceCard {
   const localAiLine =
     context.localAiDetected === true
-      ? " Start or select Ollama to get in-app replies."
+      ? " ContinuityOS AI is almost ready — you can keep exploring while it finishes."
       : "";
 
   return {
     state: "context_pack_ready",
     title: "I saved that locally.",
-    body: `Ollama is required for in-app AI replies. Start or select Ollama to answer here.${localAiLine}`,
+    body: `ContinuityOS AI is still preparing. You can keep chatting — replies will start when your AI is ready.${localAiLine}`,
     footer: null,
     actions: getNextStepActions("context_pack_ready"),
   };
@@ -192,14 +190,14 @@ export function getLocalAiGuidance(available: boolean): GuidanceCard {
   return available
     ? {
         state: "local_ai_available",
-        title: "Ollama is available.",
-        body: "Ollama is ready. You can keep chatting here, or open setup if you want to change models.",
+        title: "ContinuityOS AI is ready.",
+        body: "Your AI is ready. You can keep chatting here, or open Settings if you want to change providers.",
         actions: getNextStepActions("local_ai_available"),
       }
     : {
         state: "local_ai_unavailable",
-        title: "Ollama is not ready yet.",
-        body: "Start or select Ollama to get in-app replies. Memory, backups, and imports still work locally while Ollama is offline.",
+        title: "ContinuityOS AI is preparing.",
+        body: "Your AI is getting ready. Memory, backups, and imports still work while preparation finishes.",
         actions: getNextStepActions("local_ai_unavailable"),
       };
 }

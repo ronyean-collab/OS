@@ -92,7 +92,7 @@ export function getEmbeddedLocalLlmStatus(): EmbeddedLocalLlmStatus {
       installedModelCount,
       models,
       message:
-        "Built-in Local AI is scaffolded, but no local model file is installed yet. Use Ollama for now, or place a supported model in the local model folder later.",
+        "ContinuityOS AI is preparing in the background. You can keep chatting while it finishes.",
       availableForDirectChat: false,
       error: null,
     };
@@ -107,7 +107,7 @@ export function getEmbeddedLocalLlmStatus(): EmbeddedLocalLlmStatus {
     installedModelCount,
     models,
     message:
-      "Built-in Local AI model files are present, but runtime loading is not wired into direct chat yet. Use Ollama today, or keep this model for a future embedded release.",
+      "ContinuityOS AI files are present. Chat uses your built-in local AI when ready.",
     availableForDirectChat: false,
     error: null,
   };

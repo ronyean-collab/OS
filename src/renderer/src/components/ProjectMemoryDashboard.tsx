@@ -1,7 +1,6 @@
 import type { MemoryCompressionDraft } from "@shared/types";
 import {
   buildProjectMemorySnapshot,
-  buildResumeCard,
   computeMemoryHealth,
   type MemoryHealthResult,
 } from "../project-memory";

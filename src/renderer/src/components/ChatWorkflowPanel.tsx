@@ -67,7 +67,7 @@ type Props = {
   }) => Promise<LocalAiStatus | null>;
 };
 
-const TARGET_OPTIONS = ["AI Handoff", "ChatGPT", "Claude", "Gemini", "Other AI"];
+const TARGET_OPTIONS = ["Polaris Handoff", "External assistant", "Notes", "Other"];
 
 function triggerMarkdownDownload(fileName: string, markdown: string): void {
   const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
@@ -231,17 +231,17 @@ export function ChatWorkflowPanel({
   }, [latestUserMessage?.content, requestTextHint, workflow.requestText]);
 
   async function refreshLocalAi() {
-    setBusyLabel("Checking local AI...");
+    setBusyLabel("Checking Polaris...");
     setWorkflowError(null);
     try {
       const next = await onRefreshLocalAiStatus();
       setLocalAiStatus(next);
       const nextModel = next?.selectedModel ?? next?.models?.[0] ?? "";
       setLocalAiModel(nextModel);
-      setWorkflowStatus(next?.message ?? "Local AI status refreshed.");
+      setWorkflowStatus(next?.message ?? "Polaris status refreshed.");
     } catch (error) {
       setWorkflowError(
-        error instanceof Error ? error.message : "Could not refresh Local AI status.",
+        error instanceof Error ? error.message : "Could not refresh Polaris status.",
       );
     } finally {
       setBusyLabel(null);
@@ -255,7 +255,7 @@ export function ChatWorkflowPanel({
       setEmbeddedLocalAiStatus(next);
     } catch (error) {
       setWorkflowError(
-        error instanceof Error ? error.message : "Could not load Built-in Local AI status.",
+        error instanceof Error ? error.message : "Could not load Polaris status.",
       );
     }
   }
@@ -461,7 +461,7 @@ export function ChatWorkflowPanel({
 
   async function handleUseLocalAi() {
     if (!localAiStatus?.detected || !localAiModel.trim()) return;
-    setBusyLabel("Enabling Local AI...");
+    setBusyLabel("Enabling Polaris...");
     setWorkflowError(null);
     try {
       await onUseLocalAi({
@@ -469,11 +469,11 @@ export function ChatWorkflowPanel({
         baseUrl: localAiStatus.baseUrl,
       });
       setWorkflowStatus(
-        `Local AI is ready with ${localAiModel}. You can keep chatting here without API credits.`,
+        `Polaris is ready with ${localAiModel}. You can keep chatting here without API credits.`,
       );
     } catch (error) {
       setWorkflowError(
-        error instanceof Error ? error.message : "Could not enable Local AI.",
+        error instanceof Error ? error.message : "Could not enable Polaris.",
       );
     } finally {
       setBusyLabel(null);
@@ -486,7 +486,7 @@ export function ChatWorkflowPanel({
   return (
     <article className="message-bubble message-guide chat-workflow-panel" aria-live="polite">
       <div className="message-meta">
-        <span>ContinuityOS Guide</span>
+        <span>Polaris Guide</span>
         <span className="local-guidance-badge">Workflow</span>
       </div>
       <h3 className="guide-card-title">{definition.title}</h3>
@@ -856,10 +856,10 @@ export function ChatWorkflowPanel({
               reviewable markdown project-state file.
             </p>
             <p className="muted small">
-              Source messages: {memoryDraft?.sourceMessageCount ?? 0} Â· timeline events:{" "}
+              Source messages: {memoryDraft?.sourceMessageCount ?? 0} · timeline events:{" "}
               {memoryDraft?.sourceTimelineEventCount ?? 0}
               {memoryDraft?.latestRecordTitle
-                ? ` Â· latest saved memory: ${memoryDraft.latestRecordTitle}`
+                ? ` · latest saved memory: ${memoryDraft.latestRecordTitle}`
                 : ""}
             </p>
           </section>
@@ -941,7 +941,7 @@ export function ChatWorkflowPanel({
       {workflow.kind === "setup_local_ai" && (
         <div className="chat-workflow-stack">
           <section className="chat-workflow-preview">
-            <h4>Ollama status</h4>
+            <h4>Polaris status</h4>
             <dl className="continuity-import-stats">
               <dt>Detected</dt>
               <dd>{localAiStatus?.detected ? "Yes" : "No"}</dd>
@@ -964,7 +964,7 @@ export function ChatWorkflowPanel({
               <li>
                 Pull a model with <span className="mono">ollama pull llama3.1</span>.
               </li>
-              <li>Return here, click Detect Ollama, then select the model you want to use.</li>
+              <li>Return here, click Detect Polaris, then select the model you want to use.</li>
             </ol>
             <p className="muted small">
               ContinuityOS now uses Ollama as the only in-app chat engine. Local memory, backups,
@@ -972,7 +972,7 @@ export function ChatWorkflowPanel({
             </p>
             {!localAiStatus?.detected && (
               <p className="muted small">
-                If Ollama is running on a different local address, open Ollama Tools and enter the
+                If Polaris is running on a different local address, open Polaris Tools and enter the
                 base URL there before detecting again.
               </p>
             )}
@@ -999,7 +999,7 @@ export function ChatWorkflowPanel({
               disabled={disabled || busyLabel != null}
               onClick={() => void refreshLocalAi()}
             >
-              {busyLabel === "Checking local AI..." ? "Checking..." : "Detect Ollama"}
+              {busyLabel === "Checking Polaris..." ? "Checking..." : "Detect Polaris"}
             </button>
             <button
               type="button"
@@ -1020,7 +1020,7 @@ export function ChatWorkflowPanel({
               }
               onClick={() => void handleUseLocalAi()}
             >
-              Use Ollama for Chat
+              Use Polaris for Chat
             </button>
             <button
               type="button"
@@ -1028,7 +1028,7 @@ export function ChatWorkflowPanel({
               disabled={disabled || busyLabel != null}
               onClick={() => onOpenProjectTools("local-ai")}
             >
-              Open Ollama Tools
+              Open Polaris Tools
             </button>
             <button type="button" className="secondary small-btn" onClick={onClose}>
               Close
@@ -1041,3 +1041,6 @@ export function ChatWorkflowPanel({
     </article>
   );
 }
+
+
+

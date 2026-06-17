@@ -34,6 +34,7 @@ export type TimelineEventType =
   | "workspace_import_failed"
   | "continuity_import_file_applied"
   | "continuity_summary_updated"
+  | "workspace_profile_updated"
   | "manual_context_pack_created"
   | "manual_ai_response_saved";
 
@@ -41,14 +42,42 @@ export type TimelineEventSource = "user" | "system" | "import" | "recovery";
 
 export type MessageRole = "user" | "assistant" | "system";
 
+export type WorkspaceContinuityHealthStatus = "healthy" | "attention" | "unhealthy";
+
 export type Workspace = {
   id: string;
   name: string;
+  description: string | null;
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string;
   /** User-editable project context — not a substitute for message history. */
   continuitySummary: string | null;
+  /** Populated when workspace health is scanned for the active workspace. */
+  continuityHealthStatus: WorkspaceContinuityHealthStatus | null;
+};
+
+export type WorkspaceProfileUpdate = {
+  name?: string;
+  description?: string | null;
+};
+
+export type AssistantProfile = {
+  assistantName: string;
+  assistantCreatedAt: string;
+  assistantIdentityVersion: number;
+  preferredTone: "friendly";
+  webEnabled: boolean;
+  memoryEnabled: boolean;
+  continuityEnabled: boolean;
+  updatedAt: string;
+};
+
+export type AssistantProfileUpdate = {
+  assistantName?: string;
+  webEnabled?: boolean;
+  memoryEnabled?: boolean;
+  continuityEnabled?: boolean;
 };
 
 export type Thread = {
@@ -128,6 +157,24 @@ export type DiagnosticsReport = {
   startupWarnings: string[];
   downgradeDetected: boolean;
   updateReadiness: UpdateReadinessReport;
+  systemHealth?: SystemHealthSnapshot;
+};
+
+export type SystemHealthDimension = {
+  status: "healthy" | "attention" | "unhealthy";
+  label: string;
+  detail: string;
+};
+
+export type SystemHealthSnapshot = {
+  runtimeHealth: SystemHealthDimension & { score: number | null };
+  recoveryHealth: SystemHealthDimension & { interruptedRecovered: number };
+  providerHealth: SystemHealthDimension & { provider: string | null };
+  startupHealth: SystemHealthDimension;
+  migrationHealth: SystemHealthDimension & {
+    appliedVersion: number;
+    expectedVersion: number;
+  };
 };
 
 export type DiagnosticsBundle = {
@@ -166,6 +213,7 @@ export type DiagnosticsBundle = {
     downgradeDetected: boolean;
     warningCount: number;
   };
+  systemHealth: SystemHealthSnapshot;
   workspaces: Array<{
     id: string;
     name: string;
@@ -216,6 +264,9 @@ export type ProviderTestStatus =
   | "quota_exceeded"
   | "adapter_not_ready"
   | "ollama_unreachable"
+  | "ollama_not_running"
+  | "model_missing"
+  | "invalid_base_url"
   | "unknown_error";
 
 export type ProviderTestResult = {
@@ -554,6 +605,8 @@ export type EmbeddedLocalLlmGenerateResult = {
   message: string;
 };
 
+export type { EmbeddedAiConsumerStatus, EmbeddedAiInstallProgress } from "./embedded-local-ai-consumer";
+
 export type MemoryCompressionLevel =
   | "raw_messages"
   | "thread_summary"
@@ -567,6 +620,124 @@ export type MemoryCompressionDraft = {
   sourceMessageCount: number;
   sourceTimelineEventCount: number;
   latestRecordTitle: string | null;
+};
+
+export type ContinuityInspectorReport = {
+  continuityState: {
+    currentGoals: string[];
+    importantFacts: string[];
+    decisions: string[];
+    openLoops: string[];
+    userPreferences: string[];
+    recentSummary: string;
+    lastUpdatedAt: string;
+  } | null;
+  activeFragments: Array<{
+    id: string;
+    workspaceId: string;
+    threadId: string;
+    sourceMessageId: string;
+    fragmentType: string;
+    continuityCategory: string;
+    content: string;
+    importanceScore: number;
+    continuityWeight: number;
+    reinforcementCount: number;
+    lastReferencedAt: string | null;
+    createdAt: string;
+  }>;
+  savepoints: Array<{
+    id: string;
+    activeThreadId: string;
+    reason: string;
+    createdAt: string;
+  }>;
+  userProfileMemory: Array<{
+    preferenceKey: string;
+    preferenceValue: string;
+    confidenceScore: number;
+    updatedAt: string;
+  }>;
+  retrievedContext: string[];
+  compressionCandidates: Array<{
+    fragmentId: string;
+    content: string;
+    continuityCategory: string;
+    score: number;
+  }>;
+  contextAssemblyPreview: string;
+  runtimeContextSizeEstimate: number;
+  recoveryCheckpoints: Array<{
+    id: string;
+    createdAt: string;
+    reason: string | null;
+  }>;
+  savepointIntegrity: {
+    ok: boolean;
+    checkedCount: number;
+    issues: Array<{ savepointId: string; issue: string }>;
+    lastKnownGoodSavepointId: string | null;
+  };
+  continuityEvolutionGraph: Array<{ layer: string; count: number }>;
+  compressionLayers: {
+    shortTermSummary: string | null;
+    mediumTermSummary: string | null;
+    longTermOperationalIdentitySummary: string | null;
+  };
+  reconstructionSources: string[];
+  continuityConfidence: number;
+  continuityDrift: number;
+  reinforcementMetrics: {
+    avgReinforcement: number;
+    avgStabilityScore: number;
+  };
+  decayMetrics: {
+    avgDecayRate: number;
+  };
+  retrievalRanking: Array<{ fragmentId: string; scoreHint: number }>;
+  activeContinuityPayloadSize: number;
+  driftTimeline: Array<{ at: string; drift: number; health: number }>;
+  embeddingGenerationStatus: {
+    enabled: boolean;
+    cachedEmbeddings: number;
+    semanticMatches: Array<{ fragmentId: string; score: number }>;
+  };
+  continuityHealthScore: number;
+  calibrationMetrics: {
+    continuityFidelityScore: number;
+    operationalConsistencyScore: number;
+    emotionalContinuityScore: number;
+  };
+  maintenanceQueueStatus: {
+    queuedJobs: number;
+    processedThisTick: number;
+    maintenanceHealthScore: number;
+  };
+  retrievalSaturationIndicators: {
+    totalReturned: number;
+    categorySpread: number;
+  };
+  lowConfidenceEventTimeline: Array<{ at: string; drift: number; health: number }>;
+  runtimeMemoryPressure: {
+    activePayloadBytes: number;
+    compressedBundles: number;
+  };
+  runtimeHealth: {
+    runtimeHealthScore: number;
+    recoveryConfidenceScore: number;
+    memoryPressure: "low" | "moderate" | "high";
+    warnings: string[];
+  };
+  providerRuntimeState: {
+    selectedProvider: string | null;
+    providerReady: boolean;
+    readinessStatus: string;
+  };
+  reconstructionLatencyMs: number;
+  continuityCacheStats: {
+    hitRate: number;
+    payloadBytes: number;
+  };
 };
 
 export type TimelineGroup = {
@@ -611,6 +782,40 @@ export type AppState = {
   previousSessionCrashed: boolean;
   downgradeDetected: boolean;
   startupWarnings: string[];
+  providerSetupRequired: boolean;
+  providerReady: boolean;
+  selectedProvider: string | null;
+  providerReadinessStatus:
+    | "ready"
+    | "not_configured"
+    | "missing_api_key"
+    | "ollama_not_running"
+    | "adapter_not_ready"
+    | "invalid_key"
+    | "network_error";
+  defaultAiRouteStatus?:
+    | "ready"
+    | "preparing"
+    | "downloading"
+    | "starting"
+    | "unavailable"
+    | "needs_provider"
+    | "manual_mode"
+    | "needs_attention";
+  defaultAiRouteSource?: "local" | "user_provider" | "hosted_default" | "manual" | null;
+  defaultAiConsumerMessage?: string;
+  embeddedAiPhase?: string | null;
+  embeddedAiProgressPercent?: number | null;
+  embeddedAiBytesDownloaded?: number | null;
+  embeddedAiBytesTotal?: number | null;
+  embeddedAiLastProgressAt?: string | null;
+  embeddedAiConsumerMessage?: string | null;
+  embeddedAiRepliesReady?: boolean;
+  defaultAiCanReply?: boolean;
+  defaultAiActionLabel?: string | null;
+  defaultAiAdvancedMessage?: string | null;
+  runtimeHealthScore: number;
+  recoveryConfidenceScore: number;
 };
 
 export type SendMessageInput = {

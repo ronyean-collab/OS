@@ -2,7 +2,7 @@ import { fnv1a64Hex } from "./replay-hash";
 import { getReleaseChannelInfo } from "../../../src/shared/release-channel";
 import type { WorkspaceExportPackage } from "./workspace-export";
 
-export const BACKUP_FORMAT_VERSION = 2;
+export const BACKUP_FORMAT_VERSION = 4;
 
 export type ExportManifest = {
   backupFormatVersion: number;

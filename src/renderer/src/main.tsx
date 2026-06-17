@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { RendererErrorBoundary } from "./components/RendererErrorBoundary";
 import "./styles.css";
 
 function registerRendererCrashReporting(): void {
@@ -35,7 +36,9 @@ if (!window.continuity) {
   registerRendererCrashReporting();
   createRoot(rootEl!).render(
     <StrictMode>
-      <App />
+      <RendererErrorBoundary>
+        <App />
+      </RendererErrorBoundary>
     </StrictMode>,
   );
 }

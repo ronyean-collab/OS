@@ -1,7 +1,8 @@
-import type { Workspace } from "@shared/types";
+﻿import type { Workspace } from "@shared/types";
 
 type Props = {
   workspace: Workspace | null;
+  subtitle: string;
   ollamaStatusLabel?: string | null;
   projectToolsOpen: boolean;
   onToggleProjectTools: () => void;
@@ -9,6 +10,7 @@ type Props = {
 
 export function WorkspaceHeader({
   workspace,
+  subtitle,
   ollamaStatusLabel,
   projectToolsOpen,
   onToggleProjectTools,
@@ -17,21 +19,36 @@ export function WorkspaceHeader({
     <header className="workspace-header">
       <div className="workspace-header-copy">
         <p className="eyebrow">ContinuityOS</p>
-        <h1>{workspace?.name ?? "No workspace"}</h1>
+        <h1>{workspace?.name ?? "Your workspace"}</h1>
         <p className="muted small workspace-header-subtitle">
-          Chat with Ollama. ContinuityOS saves and compresses memory in the background.
+          {subtitle
+            .replace("Your assistant is ready.", "Polaris is ready.")
+            .replace("Your assistant is ready", "Polaris is ready")
+            .replace("AI is ready", "Polaris is ready")}
         </p>
         {ollamaStatusLabel && (
           <p className="muted small workspace-header-status">
-            <span className="mono">{ollamaStatusLabel}</span>
+            <span className="mono">
+              {ollamaStatusLabel
+                .replace("AI is ready", "Polaris is ready")
+                .replace("AI needs attention", "Polaris needs attention")
+                .replace("AI is preparing", "Polaris is preparing")}
+            </span>
           </p>
         )}
       </div>
       <div className="header-actions">
-        <button type="button" className="secondary" onClick={onToggleProjectTools}>
-          {projectToolsOpen ? "Hide project tools" : "Project tools"}
+        <button
+          type="button"
+          className="secondary"
+          data-testid="workspace-toggle"
+          onClick={onToggleProjectTools}
+        >
+          {projectToolsOpen ? "Close panel" : "Tools"}
         </button>
       </div>
     </header>
   );
 }
+
+

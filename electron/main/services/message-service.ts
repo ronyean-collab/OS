@@ -5,6 +5,9 @@ import { runInTransaction } from "../database/transactions";
 import { reconstructThreadMessages } from "./thread-reconstruction";
 import { appendTimelineEvent, enqueueSyncPlaceholder } from "./continuity-service";
 import { recordSuccessfulPersistence } from "./reliability-metrics";
+import { processMemoryForMessageNonBlocking } from "./memory-state-service";
+import { incrementalIntelligenceFromMessage } from "./continuity-intelligence-service";
+import { incrementalAiLifeFromMessage } from "./ai-life-service";
 
 function mapMessage(row: Record<string, unknown>): Message {
   const status = String(row.message_status ?? "completed") as MessageStatus;
@@ -178,7 +181,7 @@ export function insertMessage(
     input.messageStatus ??
     (input.role === "assistant" && input.content === "" ? "streaming" : "completed");
 
-  return runInTransaction(db, () => {
+  const persisted = runInTransaction(db, () => {
     const ctx = assertMessageThreadContext(db, input.threadId);
 
     db.prepare(
@@ -215,13 +218,40 @@ export function insertMessage(
     }
 
     recordSuccessfulPersistence(db);
-    return mapMessage(
+    const message = mapMessage(
       db.prepare("SELECT * FROM messages WHERE id = ?").get(id) as Record<
         string,
         unknown
       >,
     );
+    return { message, workspaceId: ctx.workspaceId };
   });
+
+  processMemoryForMessageNonBlocking(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  incrementalIntelligenceFromMessage(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  incrementalAiLifeFromMessage(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  return persisted.message;
 }
 
 /** Update assistant content during streaming — no duplicate rows. */
@@ -254,7 +284,7 @@ export function finalizeAssistantMessage(
   provider: string,
   model: string,
 ): Message {
-  return runInTransaction(db, () => {
+  const persisted = runInTransaction(db, () => {
     const now = new Date().toISOString();
     db.prepare(
       `UPDATE messages SET content = ?, provider = ?, model = ?, raw_provider_payload = ?, message_status = 'completed' WHERE id = ?`,
@@ -274,8 +304,34 @@ export function finalizeAssistantMessage(
       String(row.thread_id),
     );
     recordSuccessfulPersistence(db);
-    return mapMessage(row);
+    const workspaceId = getThreadWorkspaceId(db, String(row.thread_id));
+    return { message: mapMessage(row), workspaceId };
   });
+  processMemoryForMessageNonBlocking(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  incrementalIntelligenceFromMessage(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  incrementalAiLifeFromMessage(db, {
+    workspaceId: persisted.workspaceId,
+    threadId: persisted.message.threadId,
+    messageId: persisted.message.id,
+    role: persisted.message.role,
+    content: persisted.message.content,
+    createdAt: persisted.message.createdAt,
+  });
+  return persisted.message;
 }
 
 export type MessageThreadContext = {

@@ -4,28 +4,43 @@ import type Database from "better-sqlite3";
 import type { Message } from "../../../src/shared/types";
 import { IPC } from "../../../src/shared/ipc-channels";
 import { getProviderAdapter } from "../providers";
-import { getProviderDefinition } from "../../../src/shared/provider-definitions";
-import {
-  isProviderRuntimeReady,
-  providerRuntimeMessage,
-} from "./provider-runtime";
-import { getOllamaProviderConfig, getProviderBaseUrl } from "./provider-service";
-import { openAIAdapter } from "../providers/openai-adapter";
+import { registerStreamAbort, unregisterStreamAbort } from "../providers/stream-abort-registry";
 import type { ProviderAdapter } from "../providers/types";
-import { secureStorage } from "../secure-storage";
 import { runInTransaction } from "../database/transactions";
-import {
-  appendTimelineEvent,
-} from "./continuity-service";
+import { appendTimelineEvent } from "./continuity-service";
 import {
   buildImportedStateContextBlock,
   getLatestAppliedContinuityImport,
 } from "./continuity-import-file";
 import {
+  buildContinuityFeelingBlock,
+  buildMemoryStateContextBlock,
+  buildRelevantFragmentsContextBlock,
+  getMemoryState,
+  listRelevantMemoryFragments,
+  persistCalibrationSnapshot,
+  persistContinuityValidationSnapshot,
+  scoreContinuityReconstruction,
+} from "./memory-state-service";
+import {
+  getProviderCapabilityMetadata,
+  normalizeProviderContext,
+} from "./provider-continuity";
+import {
   applyContextTruncation,
   assembleProviderContext,
   DEFAULT_CONTEXT_MESSAGE_LIMIT,
 } from "./context-assembly";
+import { buildConversationAwarenessContext } from "./continuity-awareness-service";
+import { buildAssistantIdentityPromptForProfile } from "./assistant-identity-service";
+import { getAssistantProfile } from "./assistant-profile-service";
+import {
+  calmProviderUnavailableMessage,
+  resolveChatProvider,
+} from "./chat-provider-resolution";
+import { resolveDefaultAiRoute, buildResolvedFromRoute } from "./default-ai-runtime";
+import { providerRuntimeMessage } from "./provider-runtime";
+import { buildWebContextBlock } from "./web-knowledge-service";
 import {
   assertMessageThreadContext,
   finalizeAssistantMessage,
@@ -62,9 +77,7 @@ export function cancelStream(
   session.abortController.abort();
   const adapter = getProviderAdapter(session.provider);
   adapter?.cancelStream(streamId);
-  if (session.provider === "openai") {
-    openAIAdapter.unregisterStreamAbort(streamId);
-  }
+  unregisterStreamAbort(streamId);
 
   const partialContent = getPartialContent(db, session.assistantMessageId);
 
@@ -111,11 +124,23 @@ function emit(
   }
 }
 
-function logOllamaRoute(details: Record<string, unknown>): void {
+function logProviderRoute(details: Record<string, unknown>): void {
   if (process.env.NODE_ENV === "production") {
     return;
   }
-  console.info("[continuity] ollama route", details);
+  console.info("[continuity] provider route", details);
+}
+
+function registerAdapterStreamAbort(
+  streamId: string,
+  provider: string,
+  controller: AbortController,
+): void {
+  registerStreamAbort(streamId, controller);
+}
+
+function unregisterAdapterStreamAbort(streamId: string, provider: string): void {
+  unregisterStreamAbort(streamId);
 }
 
 export type OllamaStreamOverride = {
@@ -153,128 +178,181 @@ export async function startAssistantStream(
     };
   }
 
-  const userMessage = insertMessage(db, {
-    threadId,
-    role: "user",
-    content,
-    messageStatus: "completed",
-  });
+  let userMessage: Message | null = null;
 
-  const provider = "ollama";
+  const route = await resolveDefaultAiRoute(db, workspaceId);
+  let resolved = buildResolvedFromRoute(db, workspaceId, route);
+  if (!resolved) {
+    const legacy = resolveChatProvider(db, workspaceId);
+    if (legacy && (legacy.providerId !== "ollama" || route.status === "ready" || route.source === "local")) {
+      resolved = legacy;
+    }
+  }
   const ollamaOverride = input.ollama;
-  const storedOllama = getOllamaProviderConfig(db, workspaceId);
-  const storedRow = db
-    .prepare(
-      `SELECT * FROM provider_configs
-       WHERE workspace_id = ? AND provider = 'ollama'
-       ORDER BY updated_at DESC LIMIT 1`,
-    )
-    .get(workspaceId) as Record<string, unknown> | undefined;
 
-  const model =
-    ollamaOverride?.model.trim() ||
-    storedOllama?.model.trim() ||
-    (storedRow ? String(storedRow.model).trim() : "");
+  let provider = resolved?.providerId ?? "";
+  let model = resolved?.model ?? "";
+  let connectionValue = resolved?.connectionValue ?? "";
+  let requestBaseUrl = resolved?.requestBaseUrl ?? null;
 
-  const def = getProviderDefinition(provider);
-  const baseUrl =
-    ollamaOverride?.baseUrl.trim() ||
-    storedOllama?.baseUrl?.trim() ||
-    getProviderBaseUrl(db, workspaceId, provider) ||
-    def.defaultBaseUrl ||
-    "";
+  if (ollamaOverride?.model.trim() && ollamaOverride.baseUrl.trim()) {
+    provider = "ollama";
+    model = ollamaOverride.model.trim();
+    connectionValue = ollamaOverride.baseUrl.trim();
+    requestBaseUrl = connectionValue;
+  }
 
-  logOllamaRoute({
+  logProviderRoute({
     route: "send-start",
     workspaceId,
     threadId,
-    ollamaOverride: ollamaOverride ?? null,
+    provider: provider || null,
     selectedModel: model || null,
-    baseUrl: baseUrl || null,
-    storedProviderModel: storedOllama?.model ?? null,
-    storedProviderBaseUrl: storedOllama?.baseUrl ?? null,
+    usedOverride: Boolean(ollamaOverride),
   });
 
-  if (!model) {
-    const legacyCloud = db
-      .prepare(
-        `SELECT provider FROM provider_configs
-         WHERE workspace_id = ? AND enabled = 1 AND provider != 'ollama' LIMIT 1`,
-      )
-      .get(workspaceId) as { provider: string } | undefined;
-
+  if (!provider || !model) {
     return {
       streamId: null,
-      userMessage,
+      userMessage: null,
       assistantMessage: null,
-      error: legacyCloud
-        ? "In-app chat uses Ollama only. Open Ollama Setup, detect Ollama, and select a local model."
-        : "Select a local Ollama model in Ollama Setup.",
+      error:
+        "ContinuityOS AI isn't ready yet. Your message can still be saved — connect AI in Settings when you're ready.",
     };
   }
 
-  if (!baseUrl) {
+  const adapter = getProviderAdapter(provider);
+  if (!adapter) {
     return {
       streamId: null,
-      userMessage,
-      assistantMessage: null,
-      error: "Set the Ollama base URL in Ollama Setup.",
-    };
-  }
-
-  if (!isProviderRuntimeReady(provider)) {
-    return {
-      streamId: null,
-      userMessage,
+      userMessage: null,
       assistantMessage: null,
       error: providerRuntimeMessage(provider),
     };
   }
 
-  const connectionValue = baseUrl;
-  const adapter = getProviderAdapter(provider);
-
-  if (!adapter || !adapter.isConfigured(connectionValue)) {
-    logOllamaRoute({
+  if (!adapter.isConfigured(connectionValue)) {
+    logProviderRoute({
       route: "unavailable",
       provider,
       model,
-      baseUrl: connectionValue,
     });
     return {
       streamId: null,
-      userMessage,
+      userMessage: null,
       assistantMessage: null,
-      error:
-        "Ollama is not reachable at the configured base URL. Open Ollama Setup to detect the local server again.",
+      error: calmProviderUnavailableMessage(provider),
     };
   }
 
-  logOllamaRoute({
-    route: "ollama",
+  logProviderRoute({
+    route: "stream",
     provider,
     model,
-    baseUrl: connectionValue,
     threadId,
     workspaceId,
-    usedOverride: Boolean(ollamaOverride),
   });
+  const visibleContentForPersistence =
+    typeof input.visibleContent === "string" && input.visibleContent.trim().length > 0
+      ? input.visibleContent.trim()
+      : content;
+
 
   const historyPage = listMessagesPage(db, threadId, {
     limit: DEFAULT_CONTEXT_MESSAGE_LIMIT,
   }).messages;
-  const history = historyPage.some((message) => message.id === userMessage.id)
-    ? historyPage
-    : [...historyPage.slice(-(DEFAULT_CONTEXT_MESSAGE_LIMIT - 1)), userMessage];
+  const createdUserMessage = insertMessage(db, {
+    threadId,
+    role: "user",
+    content: visibleContentForPersistence,
+    messageStatus: "completed",
+  });
+  userMessage = createdUserMessage;
+  
+  const modelContextUserMessage = {
+    ...createdUserMessage,
+    content,
+  };
+const history = historyPage.some((message) => message.id === createdUserMessage.id)
+    ? historyPage.map((message) => message.id === createdUserMessage.id ? modelContextUserMessage : message)
+    : [...historyPage.slice(-(DEFAULT_CONTEXT_MESSAGE_LIMIT - 1)), modelContextUserMessage];
   const ws = getWorkspaceById(db, workspaceId);
   const importedState = getLatestAppliedContinuityImport(db, workspaceId);
-  const { messages: contextMessages, estimatedTokens } = assembleProviderContext({
+  const memoryState = getMemoryState(db, workspaceId, threadId);
+  const relevantFragments = listRelevantMemoryFragments(db, {
+    workspaceId,
+    threadId,
+    query: visibleContentForPersistence,
+  });
+  const feelingBlock = buildContinuityFeelingBlock({
+    state: memoryState,
+    fragments: relevantFragments,
+  });
+  const reconstruction = scoreContinuityReconstruction(db, {
+    workspaceId,
+    threadId,
+    query: visibleContentForPersistence,
+  });
+  const validationSnapshotId = persistContinuityValidationSnapshot(db, {
+    workspaceId,
+    threadId,
+    reconstruction,
+  });
+  const calibrationSnapshotId = persistCalibrationSnapshot(db, {
+    workspaceId,
+    threadId,
+    reconstruction,
+  });
+  const lowConfidenceMode =
+    reconstruction.needsCorrection ||
+    reconstruction.continuityConfidenceScore < 0.6 ||
+    reconstruction.continuityReconstructionHealth < 0.45;
+  const adjustedFragments = lowConfidenceMode ? relevantFragments.slice(0, 2) : relevantFragments;
+  const adjustedFeelingBlock = lowConfidenceMode ? null : feelingBlock;
+  const assistantProfile = getAssistantProfile(db);
+  const assistantIdentityPrompt = buildAssistantIdentityPromptForProfile(assistantProfile, {
+    providerId: provider,
+    modelName: model,
+  });
+  const webContextBlock = await buildWebContextBlock(db, content);
+  const awareness = buildConversationAwarenessContext(db, {
+    workspaceId,
+    threadId,
+    currentMessage: visibleContentForPersistence,
+    recentMessages: history,
     workspaceName: ws?.name ?? "Workspace",
     continuitySummary: ws?.continuitySummary ?? null,
+  });
+  const { messages: contextMessages, estimatedTokens } = assembleProviderContext({
+    workspaceName: ws?.name ?? "Workspace",
+    assistantIdentityPrompt,
+    awarenessContextBlock: awareness.awarenessBlock,
+    aiLifeAwarenessBlock: awareness.aiLifeBlock,
+    continuityIntelligenceBlock: awareness.continuityIntelligenceBlock,
+    continuitySummary: ws?.continuitySummary ?? null,
     importedContextBlock: buildImportedStateContextBlock(importedState),
+    memoryStateBlock: awareness.suppressLegacyMemory ? null : buildMemoryStateContextBlock(memoryState),
+    relevantFragmentsBlock: awareness.suppressLegacyMemory
+      ? null
+      : buildRelevantFragmentsContextBlock(adjustedFragments),
+    continuityFeelingBlock: awareness.suppressLegacyMemory ? null : adjustedFeelingBlock,
+    webContextBlock,
     messages: history,
   });
-  const truncated = applyContextTruncation(contextMessages, 128_000);
+  const providerContextBudget = provider === "ollama" ? 3_500 : 128_000;
+
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[stream-runtime] context budget", {
+      provider,
+      model,
+      estimatedTokens,
+      providerContextBudget,
+    });
+  }
+
+  const truncated = applyContextTruncation(contextMessages, providerContextBudget);
+  const providerCapability = getProviderCapabilityMetadata(provider);
+  const normalizedContext = normalizeProviderContext(provider, truncated);
 
   const assistantMessage = insertMessage(db, {
     threadId,
@@ -289,10 +367,7 @@ export async function startAssistantStream(
 
   const streamId = uuid();
   const abortController = new AbortController();
-
-  if (provider === "openai") {
-    openAIAdapter.registerStreamAbort(streamId, abortController);
-  }
+  registerAdapterStreamAbort(streamId, provider, abortController);
 
   activeStreams.set(streamId, {
     streamId,
@@ -310,18 +385,36 @@ export async function startAssistantStream(
     title: "Assistant responding",
     description: `${provider} / ${model} · ~${estimatedTokens} tokens context`,
   });
+  if (reconstruction.needsCorrection) {
+    appendTimelineEvent(db, {
+      workspaceId,
+      threadId,
+      type: "assistant_response_failed",
+      title: "Continuity drift warning",
+      description: `drift=${reconstruction.continuityDriftScore.toFixed(
+        3,
+      )} threshold=${reconstruction.driftWarningThreshold.toFixed(
+        3,
+      )} validation=${validationSnapshotId} calibration=${calibrationSnapshotId}`,
+      source: "system",
+    });
+  }
 
-  void runStream({
-    db,
-    sender,
-    streamId,
-    adapter,
-    connectionValue: String(connectionValue ?? ""),
-    model,
-    provider,
-    contextMessages: truncated,
-    session: activeStreams.get(streamId)!,
-  });
+  setTimeout(() => {
+    void runStream({
+      db,
+      sender,
+      streamId,
+      adapter,
+      connectionValue,
+      model,
+      provider,
+      requestBaseUrl,
+      contextMessages: normalizedContext,
+      session: activeStreams.get(streamId)!,
+      maxContextHintTokens: providerCapability.maxContextHintTokens,
+    });
+  }, 25);
 
   return { streamId, userMessage, assistantMessage };
 }
@@ -334,8 +427,10 @@ async function runStream(args: {
   connectionValue: string;
   model: string;
   provider: string;
+  requestBaseUrl: string | null;
   contextMessages: ReturnType<typeof assembleProviderContext>["messages"];
   session: ActiveStream;
+  maxContextHintTokens: number;
 }): Promise<void> {
   const {
     db,
@@ -345,13 +440,14 @@ async function runStream(args: {
     connectionValue,
     model,
     provider,
+    requestBaseUrl,
     contextMessages,
     session,
-  } =
-    args;
+    maxContextHintTokens,
+  } = args;
 
   await adapter.streamMessage(
-    { model, messages: contextMessages },
+    { model, messages: contextMessages, baseUrl: requestBaseUrl },
     connectionValue,
     {
       onChunk: (delta, accumulated) => {
@@ -385,12 +481,21 @@ async function runStream(args: {
             title: "Assistant response completed",
             description: result.content.slice(0, 120),
           });
+          if (result.content.length > maxContextHintTokens * 4) {
+            appendTimelineEvent(db, {
+              workspaceId: session.workspaceId,
+              threadId: session.threadId,
+              type: "assistant_response_failed",
+              title: "Continuity context warning",
+              description:
+                "Response size exceeded provider context hint; continuity context may need compression.",
+              source: "system",
+            });
+          }
         });
 
         activeStreams.delete(streamId);
-        if (provider === "openai") {
-          openAIAdapter.unregisterStreamAbort(streamId);
-        }
+        unregisterAdapterStreamAbort(streamId, provider);
 
         emit(sender, IPC.STREAM_DONE, {
           streamId,
@@ -409,11 +514,10 @@ async function runStream(args: {
           if (isCancel) {
             setMessageStatus(db, session.assistantMessageId, "cancelled");
           } else {
-            logOllamaRoute({
+            logProviderRoute({
               route: "error",
               provider,
               model,
-              baseUrl: connectionValue,
               error: error.message,
               threadId: session.threadId,
               workspaceId: session.workspaceId,
@@ -430,9 +534,7 @@ async function runStream(args: {
         });
 
         activeStreams.delete(streamId);
-        if (provider === "openai") {
-          openAIAdapter.unregisterStreamAbort(streamId);
-        }
+        unregisterAdapterStreamAbort(streamId, provider);
 
         emit(sender, IPC.STREAM_ERROR, {
           streamId,
@@ -446,3 +548,4 @@ async function runStream(args: {
     session.abortController.signal,
   );
 }
+

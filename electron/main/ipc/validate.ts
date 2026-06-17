@@ -1,4 +1,4 @@
-const UUID_LIKE = /^[a-zA-Z0-9_-]{8,128}$/;
+﻿const UUID_LIKE = /^[a-zA-Z0-9_-]{8,128}$/;
 
 export function assertNonEmptyString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) {
@@ -26,12 +26,17 @@ export function assertStreamId(value: unknown): string {
 export function assertSendMessageInput(value: unknown): {
   threadId: string;
   content: string;
+  visibleContent?: string;
   ollama?: { model: string; baseUrl: string };
 } {
   if (!value || typeof value !== "object") {
     throw new Error("Invalid message input.");
   }
   const o = value as Record<string, unknown>;
+    const visibleContent =
+    typeof o.visibleContent === "string" && o.visibleContent.trim().length > 0
+      ? o.visibleContent.trim()
+      : undefined;
   let ollama: { model: string; baseUrl: string } | undefined;
   if (o.ollama != null) {
     if (typeof o.ollama !== "object") {
@@ -47,6 +52,7 @@ export function assertSendMessageInput(value: unknown): {
   return {
     threadId: assertThreadId(o.threadId),
     content: assertNonEmptyString(o.content, "content"),
+    visibleContent,
     ollama,
   };
 }
@@ -179,5 +185,21 @@ export function assertManualAssistantResponseSaveInput(value: unknown): {
     assistantResponse: assertNonEmptyString(o.assistantResponse, "assistantResponse"),
     targetPlatform: typeof o.targetPlatform === "string" ? o.targetPlatform.trim() : undefined,
     sourceUserMessageId,
+  };
+}
+
+export function assertContinuityInspectorInput(value: unknown): {
+  workspaceId: string;
+  threadId: string;
+  query?: string;
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid continuity inspector input.");
+  }
+  const o = value as Record<string, unknown>;
+  return {
+    workspaceId: assertNonEmptyString(o.workspaceId, "workspaceId"),
+    threadId: assertThreadId(o.threadId),
+    query: typeof o.query === "string" ? o.query.trim() : undefined,
   };
 }

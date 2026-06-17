@@ -85,20 +85,43 @@ export function getOllamaProviderConfig(
   return row ? mapConfig(db, row) : null;
 }
 
+export function getProviderConfigById(
+  db: Database.Database,
+  workspaceId: string,
+  provider: string,
+): ProviderConfig | null {
+  const normalized = provider.trim().toLowerCase();
+  const row = db
+    .prepare(
+      `SELECT * FROM provider_configs
+       WHERE workspace_id = ? AND provider = ?
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get(workspaceId, normalized) as Record<string, unknown> | undefined;
+  return row ? mapConfig(db, row) : null;
+}
+
+/** Active in-app chat provider (single enabled row per workspace). */
 export function getProviderConfig(
   db: Database.Database,
   workspaceId: string,
 ): ProviderConfig | null {
-  const ollama = getOllamaProviderConfig(db, workspaceId);
-  if (ollama) {
-    return ollama;
-  }
   const row = db
+    .prepare(
+      `SELECT * FROM provider_configs
+       WHERE workspace_id = ? AND enabled = 1
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get(workspaceId) as Record<string, unknown> | undefined;
+  if (row) {
+    return mapConfig(db, row);
+  }
+  const fallback = db
     .prepare(
       "SELECT * FROM provider_configs WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT 1",
     )
     .get(workspaceId) as Record<string, unknown> | undefined;
-  return row ? mapConfig(db, row) : null;
+  return fallback ? mapConfig(db, fallback) : null;
 }
 
 export function removeProviderApiKey(
@@ -135,7 +158,7 @@ export function saveProviderConfig(
     if (apiKey.trim()) {
       storeApiKeyOrThrow(ref, apiKey);
     } else if (!storage().hasKey(ref)) {
-      throw new Error(`An API key is required for ${def.displayName}.`);
+      throw new Error(`A local runtime connection is required for ${def.displayName}.`);
     }
   }
 
@@ -155,11 +178,9 @@ export function saveProviderConfig(
   const now = new Date().toISOString();
   const id = existing?.id ?? uuid();
 
-  if (normalizedProvider === "ollama") {
-    db.prepare(
-      `UPDATE provider_configs SET enabled = 0, updated_at = ? WHERE workspace_id = ? AND provider != ?`,
-    ).run(now, workspaceId, normalizedProvider);
-  }
+  db.prepare(
+    `UPDATE provider_configs SET enabled = 0, updated_at = ? WHERE workspace_id = ? AND provider != ?`,
+  ).run(now, workspaceId, normalizedProvider);
 
   if (existing) {
     db.prepare(
