@@ -1,71 +1,128 @@
-# ContinuityOS Desktop (v1 foundation)
+# ContinuityOS Desktop
 
-Local-first AI continuity workspace — Electron + React + Vite + SQLite.
+**A local-first workspace where conversations, memory, and continuity persist on your device.**
 
-## Milestone 1 + AI runtime
+ContinuityOS is not another chat tab. It is a **continuity layer** for AI work: threads, snapshots, backups, recovery, and context assembly stay on your machine — recoverable after crashes, restarts, and upgrades.
 
-Persistent AI chat workspace with OpenAI streaming:
+## What is ContinuityOS?
 
-- Real OpenAI SDK (`gpt-4o-mini` default)
-- Token streaming via main process → preload → renderer
-- Cancel generation, partial response preserved
-- Recent-message context assembly (no vector DB)
+ContinuityOS Desktop is an Electron application that gives you:
 
-## Milestone 1 foundation
+- **Persistent workspaces** — threads, messages, and timeline events in SQLite
+- **Recoverable streaming** — interrupted generations can be recovered; partial work is not lost silently
+- **Local backups & import** — encrypted exports, preview-before-import, rollback on failure
+- **Manual Mode** — use any external AI via context packs while continuity stays local
+- **In-app chat (Ollama)** — optional local model chat without sending workspace data to the cloud
+- **Diagnostics** — local-only health signals (runtime, recovery, provider, startup, migrations)
 
-Persistent AI chat workspace with:
+## Why it exists
 
-- Workspaces and threads in SQLite
-- Messages (normalized fields + raw provider JSON)
-- Timeline events and snapshot placeholders
-- OS secure storage for API keys (not in SQLite)
-- Supabase client foundation (auth placeholder, sync queue tables)
-- Recovery-safe path when SQLite fails
+Most AI tools optimize for **single-session chat**. ContinuityOS optimizes for **work that spans sessions** — projects, decisions, and context that must survive restarts, provider switches, and human interruption.
+
+## Core philosophy
+
+| Principle | Meaning |
+|-----------|---------|
+| **Local-first** | Your data lives in your user profile, not a vendor silo |
+| **Continuity-first** | Messages are canonical; recovery and snapshots are first-class |
+| **Calm UX** | No agent swarms, memory dashboards, or cloud-sync pressure |
+| **Honest boundaries** | Cloud providers are Manual Mode; in-app chat is Ollama-only by design |
+| **Recoverable by default** | Backups, migrations, and diagnostics support real-world failure |
+
+We intentionally do **not** ship (in v1): agents, cloud sync, collaboration, billing, marketplace, or plugin systems.
+
+## Local-first design
+
+- SQLite database under Electron `userData`
+- API keys in OS secure storage (`safeStorage`), referenced — never stored in plaintext in SQLite
+- Diagnostics and metrics are **local only** — no cloud telemetry
+- Exports are user-initiated; imports are previewed
+
+## Continuity architecture (overview)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Renderer (React) — chat, onboarding, workspace ops     │
+└───────────────────────────┬─────────────────────────────┘
+                            │ IPC (preload bridge)
+┌───────────────────────────▼─────────────────────────────┐
+│  Main process — services, providers, stream runtime     │
+│  • context-assembly  • snapshots  • backups             │
+│  • migrations        • recovery   • diagnostics         │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│  SQLite + secure storage + local audit/metrics files      │
+└─────────────────────────────────────────────────────────┘
+```
+
+See [ARCHITECTURE-OVERVIEW.md](./ARCHITECTURE-OVERVIEW.md) for detail.
 
 ## Quick start
 
 ```bash
+git clone <repo>
 cd continuity-os-desktop
 npm install
 npm run dev
 ```
 
-## Build
+On first launch, complete the onboarding wizard: choose **Ollama** for in-app chat or **Manual Mode** to start without a local model.
+
+## Build & release
 
 ```bash
-npm run build
-npm run preview
+npm run build          # compile main + renderer
+npm run dist           # packaged installer (electron-builder)
 ```
 
-## Test / verify
+See [RELEASE-ENGINEERING-REVIEW.md](./RELEASE-ENGINEERING-REVIEW.md) and [RELEASE-NOTES.md](./RELEASE-NOTES.md).
+
+## Test & verify
 
 ```bash
-npm test              # Vitest: schema + persistence services
-npm run test:verify   # File presence check (no Electron required)
+npm test               # Vitest (unit + integration)
+npm run test:e2e       # Playwright (requires build)
+npm run test:release   # release-oriented test bundle
 ```
 
-Tests cover: migrations, workspace/thread/message persistence, timeline events, restart simulation, secure ref (not plaintext keys in SQLite).
+## Documentation index
 
-## Architecture
+### Vision foundation (source of truth)
+
+| Document | Purpose |
+|----------|---------|
+| [PRODUCT-VISION.md](./PRODUCT-VISION.md) | Mission, promise, philosophy |
+| [CONTINUITY-CONSTITUTION.md](./CONTINUITY-CONSTITUTION.md) | Non-negotiable governing principles |
+| [AI-COMPANION-VISION.md](./AI-COMPANION-VISION.md) | Assistant identity and behavior |
+| [BUSINESS-VISION.md](./BUSINESS-VISION.md) | Market, users, monetization philosophy |
+| [FUTURE-ARCHITECTURE-VISION.md](./FUTURE-ARCHITECTURE-VISION.md) | Layered architecture philosophy |
+| [DEVELOPMENT-GUARDRAILS.md](./DEVELOPMENT-GUARDRAILS.md) | What we must never become |
+
+### Beta & operations
+
+| Document | Purpose |
+|----------|---------|
+| [BETA-TESTING-GUIDE.md](./BETA-TESTING-GUIDE.md) | Beta tester onboarding |
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Common fixes |
+| [KNOWN-ISSUES.md](./KNOWN-ISSUES.md) | Accepted limitations |
+| [PRODUCT-VISION.md](./PRODUCT-VISION.md) | Product direction |
+| [WHY-CONTINUITYOS.md](./WHY-CONTINUITYOS.md) | Differentiation |
+| [SECURITY-CHECKLIST.md](./SECURITY-CHECKLIST.md) | Security review |
+| [docs/MANUAL-QA-CHECKLIST.md](./docs/MANUAL-QA-CHECKLIST.md) | Manual QA |
+
+## Project layout
 
 | Layer | Path |
 |-------|------|
 | Electron main | `electron/main/` |
 | Preload bridge | `electron/preload/` |
-| IPC handlers | `electron/main/ipc/` |
-| SQLite + migrations | `electron/main/database/` |
+| IPC | `electron/main/ipc/` |
+| Database | `electron/main/database/` |
 | Services | `electron/main/services/` |
-| Provider adapters | `electron/main/providers/` |
-| Secure storage | `electron/main/secure-storage/` |
-| Supabase foundation | `electron/main/supabase/` |
 | React UI | `src/renderer/src/` |
 | Shared types | `src/shared/` |
-
-## Security
-
-- Renderer has no Node integration; uses `window.continuity` preload API only.
-- API keys stored via Electron `safeStorage` in `userData/secure-secrets/`.
-- `provider_configs.secure_key_ref` points to secure storage — never plaintext keys in SQLite.
+| E2E tests | `tests/e2e/` |
 
 ## License
 
