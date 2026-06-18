@@ -1,0 +1,26 @@
+appId: com.continuityos.desktop
+productName: ContinuityOS
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+extraMetadata:
+  main: out/main/index.js
+win:
+  verifyUpdateCodeSignature: false
+  signAndEditExecutable: false
+  target:
+    - nsis
+  icon: build/icon.ico
+mac:
+  target:
+    - dmg
+  icon: build/icon.ico
+linux:
+  target:
+    - AppImage
+  icon: build/icon.ico
+publish: null
+

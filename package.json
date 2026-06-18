@@ -10,10 +10,20 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "npm run rebuild:native:node && vitest run",
+    "test:soak": "node scripts/soak-runtime.mjs",
+    "test:soak:endurance": "node scripts/soak/endurance-runner.mjs",
+    "test:soak:full": "node scripts/soak/run-full-soak-matrix.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:file-transfer": "playwright test tests/e2e/file-transfer.spec.ts",
+    "test:release": "npm test && npm run build && npm run test:e2e && node scripts/e2e/generate-file-transfer-report.mjs && npm run test:soak:full",
+    "test:dd": "npm test && npm run build && npm run test:e2e && node scripts/dd/generate-continuity-health.mjs && node scripts/dd/generate-bundle-analysis.mjs",
+    "test:rc": "npm test && npm run build && npm run test:e2e && node scripts/rc/collect-performance.mjs",
     "test:verify": "node scripts/verify-foundation.mjs",
     "rebuild:native:node": "npm rebuild better-sqlite3",
     "rebuild:native:electron": "npx electron-rebuild -f -w better-sqlite3",
-    "postinstall": "electron-builder install-app-deps || true"
+    "postinstall": "electron-builder install-app-deps || true",
+    "package:win": "npm run build && electron-builder --win --dir",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -24,6 +34,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

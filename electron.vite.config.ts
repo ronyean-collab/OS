@@ -40,6 +40,12 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, "src/renderer/index.html"),
         },
+        output: {
+          manualChunks(id) {
+            if (id.includes("ContinuityInspectorModal")) return "continuity-inspector";
+            if (id.includes("node_modules")) return "vendor";
+          },
+        },
       },
     },
     plugins: [react()],
