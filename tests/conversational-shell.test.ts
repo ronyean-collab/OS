@@ -30,7 +30,7 @@ describe("conversational shell", () => {
 
     expect(card.title).toContain("ContinuityOS Guide");
     expect(card.body).toContain("memory import");
-    expect(card.actions.map((action) => action.label)).toContain("Set Up Ollama");
+    expect(card.actions.map((action) => action.label)).toContain("Connect AI");
     expect(card.footer).toBeNull();
   });
 
@@ -42,12 +42,12 @@ describe("conversational shell", () => {
     });
 
     expect(card.title).toContain("saved");
-    expect(card.body).toContain("Ollama is not ready yet");
-    expect(card.actions.map((action) => action.label)).toContain("Set Up Ollama");
+    expect(card.body).toContain("ContinuityOS AI is still preparing");
+    expect(card.actions.map((action) => action.label)).toContain("Connect AI");
     expect(card.actions.map((action) => action.label)).toContain("Backup / Export");
   });
 
-  it("shows a compact Ollama failure guide when ready chat routing fails", () => {
+  it("shows a compact AI failure guide when ready chat routing fails", () => {
     const card = buildChatFailureCard({
       localAiState: "ollama_ready",
       providerReady: true,
@@ -57,14 +57,13 @@ describe("conversational shell", () => {
     });
 
     expect(card.title).toContain("reply failed");
-    expect(card.body).toContain("llama3.1:latest");
-    expect(card.body).toContain("http://127.0.0.1:11500");
+    expect(card.body).toContain("ContinuityOS AI");
     expect(card.actions.map((action) => action.label)).toContain("Retry in Chat");
-    expect(card.actions.map((action) => action.label)).toContain("Detect Ollama Again");
+    expect(card.actions.map((action) => action.label)).toContain("Connect AI");
     expect(card.footer).toContain("ECONNREFUSED");
   });
 
-  it("keeps setup guidance when Ollama is not ready", () => {
+  it("keeps setup guidance when AI is not ready", () => {
     const card = buildChatFailureCard({
       localAiState: "ollama_not_detected",
       providerReady: false,
@@ -72,8 +71,8 @@ describe("conversational shell", () => {
     });
 
     expect(card.title).toContain("saved");
-    expect(card.body).toContain("Ollama is not ready yet");
-    expect(card.actions.map((action) => action.label)).toContain("Set Up Ollama");
+    expect(card.body).toContain("ContinuityOS AI is still preparing");
+    expect(card.actions.map((action) => action.label)).toContain("Connect AI");
   });
 
   it("keeps workflow commands out of the conversational fallback path", () => {

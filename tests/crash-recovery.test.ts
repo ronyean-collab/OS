@@ -83,5 +83,6 @@ describe("crash recovery and diagnostics safety", () => {
     expect(json).not.toMatch(/sk-[a-zA-Z0-9_-]{12,}/);
     expect(json).not.toContain("apiKey");
     expect(bundle.workspaces[0].name).toBe("Diag safe");
+    expect(bundle.systemHealth.migrationHealth.status).toBe("healthy");
   });
 });
