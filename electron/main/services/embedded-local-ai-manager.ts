@@ -15,7 +15,7 @@ import {
   type EmbeddedAiInstallPhase,
   type EmbeddedAiInstallProgress,
 } from "../../../src/shared/embedded-local-ai-consumer";
-import { getLocalAiStatus, listOllamaModels } from "./local-ai-service";
+import { __resetLocalAiServiceForTests, getLocalAiStatus, listOllamaModels } from "./local-ai-service";
 import { bootstrapLocalAiOnStartup } from "./local-ai-bootstrap";
 import { saveProviderConfig } from "./provider-service";
 import { testProviderConnection } from "./provider-connection-test";
@@ -688,4 +688,5 @@ export function __resetEmbeddedLocalAiManagerForTests(): void {
   prepareInFlight = null;
   progressListeners = [];
   __resetRuntimeProvisionerForTests();
+  __resetLocalAiServiceForTests();
 }

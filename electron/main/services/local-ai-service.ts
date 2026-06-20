@@ -1,4 +1,4 @@
-﻿import type Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { LocalAiStatus } from "../../../src/shared/types";
 import { getProviderDefinition } from "../../../src/shared/provider-definitions";
@@ -25,6 +25,25 @@ const OLLAMA_BOOTSTRAP_POLL_MS = 1_000;
 
 let ollamaBootstrapProcess: ChildProcess | null = null;
 let ollamaBootstrapPromise: Promise<{ baseUrl: string; models: string[] } | null> | null = null;
+type LocalAiStatusTestDelegate = (
+  db: Database.Database,
+  workspaceId: string,
+  preferredBaseUrl?: string | null,
+) => Promise<LocalAiStatus>;
+
+let localAiStatusTestDelegate: LocalAiStatusTestDelegate | null = null;
+
+export function __setLocalAiStatusDelegateForTests(
+  delegate: LocalAiStatusTestDelegate | null,
+): void {
+  localAiStatusTestDelegate = delegate;
+}
+
+export function __resetLocalAiServiceForTests(): void {
+  localAiStatusTestDelegate = null;
+  ollamaBootstrapPromise = null;
+}
+
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -221,6 +240,9 @@ export async function getLocalAiStatus(
   workspaceId: string,
   preferredBaseUrl?: string | null,
 ): Promise<LocalAiStatus> {
+  if (localAiStatusTestDelegate) {
+    return localAiStatusTestDelegate(db, workspaceId, preferredBaseUrl);
+  }
   const currentConfig = getProviderConfig(db, workspaceId);
   const configuredBaseUrl =
     normalizeOllamaBaseUrl(preferredBaseUrl) ??
